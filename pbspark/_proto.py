@@ -10,6 +10,11 @@ from pyspark.sql.functions import col
 from pyspark.sql.functions import udf
 from pyspark.sql.types import *
 
+_MESSAGETYPE_TO_SPARK_TYPE_MAP = {
+    "google.protobuf.Timestamp": StringType,
+    "google.protobuf.Duration": StringType,
+}
+
 _CPPTYPE_TO_SPARK_TYPE_MAP = {
     FieldDescriptor.CPPTYPE_INT32: IntegerType,
     FieldDescriptor.CPPTYPE_INT64: LongType,
@@ -20,7 +25,6 @@ _CPPTYPE_TO_SPARK_TYPE_MAP = {
     FieldDescriptor.CPPTYPE_BOOL: BooleanType,
     FieldDescriptor.CPPTYPE_ENUM: StringType,
     FieldDescriptor.CPPTYPE_STRING: StringType,
-    FieldDescriptor.CPPTYPE_MESSAGE: StructType,
 }
 
 
@@ -35,9 +39,14 @@ def get_spark_schema(
     else:
         descriptor_ = descriptor
     for field in descriptor_.fields:
-        spark_type: t.Union[StructType, ArrayType]
+        spark_type: DataType
         if field.cpp_type == FieldDescriptor.CPPTYPE_MESSAGE:
-            spark_type = get_spark_schema(field.message_type)
+            if field.message_type.full_name in _MESSAGETYPE_TO_SPARK_TYPE_MAP:
+                spark_type = _MESSAGETYPE_TO_SPARK_TYPE_MAP[
+                    field.message_type.full_name
+                ]()
+            else:
+                spark_type = get_spark_schema(field.message_type)
         else:
             spark_type = _CPPTYPE_TO_SPARK_TYPE_MAP[field.cpp_type]()
         if field.label == FieldDescriptor.LABEL_REPEATED:
