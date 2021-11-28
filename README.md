@@ -34,7 +34,11 @@ from pbspark import from_protobuf
 from example.example_pb2 import ExampleMessage
 
 spark = SparkSession.builder.getOrCreate()
-df = spark.sql("SELECT value FROM examplemessagetable")
+
+example = ExampleMessage(name="hello", quantity=5, measure=12.3)
+data = [{"value": example.SerializeToString()}]
+df = spark.createDataFrame(data)
+
 df_decoded = df.select(from_protobuf(df.value, ExampleMessage).alias("value"))
 df_flattened = df_decoded.select("value.*")
 df_flattened.show()
