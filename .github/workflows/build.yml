@@ -65,7 +65,9 @@ jobs:
 
     - name: Fmt
       run: |
-        make fmt
+        poetry run isort --check .
+        poetry run black --check .
+        poetry run mypy .
 
     - name: Generate
       run: |
