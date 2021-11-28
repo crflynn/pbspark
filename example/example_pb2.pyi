@@ -4,9 +4,11 @@ isort:skip_file
 """
 import builtins
 import google.protobuf.descriptor
+import google.protobuf.duration_pb2
 import google.protobuf.internal.containers
 import google.protobuf.internal.enum_type_wrapper
 import google.protobuf.message
+import google.protobuf.timestamp_pb2
 import typing
 import typing_extensions
 
@@ -84,6 +86,8 @@ class ExampleMessage(google.protobuf.message.Message):
     ONEOFSTRING_FIELD_NUMBER: builtins.int
     ONEOFINT32_FIELD_NUMBER: builtins.int
     MAP_FIELD_NUMBER: builtins.int
+    TIMESTAMP_FIELD_NUMBER: builtins.int
+    DURATION_FIELD_NUMBER: builtins.int
     int32: builtins.int = ...
     int64: builtins.int = ...
     uint32: builtins.int = ...
@@ -114,6 +118,10 @@ class ExampleMessage(google.protobuf.message.Message):
     def map(
         self,
     ) -> google.protobuf.internal.containers.ScalarMap[typing.Text, typing.Text]: ...
+    @property
+    def timestamp(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
+    @property
+    def duration(self) -> google.protobuf.duration_pb2.Duration: ...
     def __init__(
         self,
         *,
@@ -138,10 +146,14 @@ class ExampleMessage(google.protobuf.message.Message):
         oneofstring: typing.Text = ...,
         oneofint32: builtins.int = ...,
         map: typing.Optional[typing.Mapping[typing.Text, typing.Text]] = ...,
+        timestamp: typing.Optional[google.protobuf.timestamp_pb2.Timestamp] = ...,
+        duration: typing.Optional[google.protobuf.duration_pb2.Duration] = ...,
     ) -> None: ...
     def HasField(
         self,
         field_name: typing_extensions.Literal[
+            "duration",
+            b"duration",
             "nested",
             b"nested",
             "oneof",
@@ -150,6 +162,8 @@ class ExampleMessage(google.protobuf.message.Message):
             b"oneofint32",
             "oneofstring",
             b"oneofstring",
+            "timestamp",
+            b"timestamp",
         ],
     ) -> builtins.bool: ...
     def ClearField(
@@ -161,6 +175,8 @@ class ExampleMessage(google.protobuf.message.Message):
             b"bytes",
             "double",
             b"double",
+            "duration",
+            b"duration",
             "enum",
             b"enum",
             "fixed32",
@@ -195,6 +211,8 @@ class ExampleMessage(google.protobuf.message.Message):
             b"string",
             "stringlist",
             b"stringlist",
+            "timestamp",
+            b"timestamp",
             "uint32",
             b"uint32",
             "uint64",

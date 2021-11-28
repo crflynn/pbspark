@@ -2,6 +2,9 @@ syntax = "proto3";
 
 package example;
 
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/duration.proto";
+
 message NestedMessage {
   string key = 1;
   string value = 2;
@@ -36,4 +39,6 @@ message ExampleMessage {
     int32 oneofint32 = 20;
   }
   map<string, string> map = 21;
+  google.protobuf.Timestamp timestamp = 22;
+  google.protobuf.Duration duration = 23;
 }

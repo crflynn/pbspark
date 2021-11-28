@@ -1,5 +1,10 @@
+import datetime
+
 import pytest
+from google.protobuf.duration_pb2 import Duration
 from google.protobuf.json_format import MessageToDict
+from google.protobuf.timestamp_pb2 import Timestamp
+from pyspark.sql.functions import col
 from pyspark.sql.session import SparkSession
 from pyspark.sql.types import *
 
@@ -12,6 +17,9 @@ from pbspark import get_spark_schema
 
 @pytest.fixture()
 def example():
+    ts = Timestamp()
+    ts.FromDatetime(datetime.datetime.utcnow())
+    dur = Duration(seconds=1, nanos=1)
     ex = ExampleMessage(
         string="asdf",
         int32=69,
@@ -23,6 +31,8 @@ def example():
             value="world",
         ),
         enum=ExampleMessage.SomeEnum.first,
+        timestamp=ts,
+        duration=dur,
     )
     return ex
 
@@ -73,6 +83,8 @@ def test_get_spark_schema():
                 ),
                 True,
             ),
+            StructField("timestamp", StringType(), True),
+            StructField("duration", StringType(), True),
         ]
     )
     assert schema == expected_schema
@@ -91,6 +103,8 @@ def test_get_decoder(example):
         "nested": {"key": "hello", "value": "world"},
         "stringlist": ["one", "two", "three"],
         "bytes": "c29tZXRoaW5n",  # b64encoded
+        "timestamp": example.timestamp.ToJsonString(),
+        "duration": example.duration.ToJsonString(),
     }
     assert decoded == expected
 
@@ -99,11 +113,19 @@ def test_from_protobuf(example):
     data = [{"value": example.SerializeToString()}]
 
     spark = SparkSession.builder.getOrCreate()
+    spark.conf.set("spark.sql.session.timeZone", "UTC")
+
     df = spark.createDataFrame(data)
     dfs = df.select(from_protobuf(df.value, ExampleMessage).alias("value"))
     dfe = dfs.select("value.*")
+    dfe.show()
 
     field_names = [field.name for field in ExampleMessage.DESCRIPTOR.fields]
     for field_name in field_names:
         assert field_name in dfe.columns
-    dfe.show()
+
+    dfts = dfe.withColumn(
+        "timestamp",
+        col("timestamp").cast(TimestampType()),
+    )
+    dfts.show()
