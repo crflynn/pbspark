@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package example;
+
+message NestedMessage {
+  string key = 1;
+  string value = 2;
+}
+
+message ExampleMessage {
+  int32 int32 = 1;
+  int64 int64 = 2;
+  uint32 uint32 = 3;
+  uint64 uint64 = 4;
+  double double = 5;
+  float float = 6;
+  bool bool = 7;
+  enum SomeEnum {
+    unspecified = 0;
+    first = 1;
+    second = 2;
+  }
+  SomeEnum enum = 8;
+  string string = 9;
+  NestedMessage nested = 10;
+  repeated string stringlist = 11;
+  bytes bytes = 12;
+  sfixed32 sfixed32 = 13;
+  sfixed64 sfixed64 = 14;
+  sint32 sint32 = 15;
+  sint64 sint64 = 16;
+  fixed32 fixed32 = 17;
+  fixed64 fixed64 = 18;
+  oneof oneof {
+    string oneofstring = 19;
+    int32 oneofint32 = 20;
+  }
+  map<string, string> map = 21;
+}
