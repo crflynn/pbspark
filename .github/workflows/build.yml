@@ -1,0 +1,76 @@
+name: build
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+jobs:
+
+  linux:
+
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.9.5]
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v1
+
+    # required for coverage
+    - name: Install sqlite
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libsqlite3-dev
+
+    - name: Install asdf
+      uses: asdf-vm/actions/setup@v1.0.1
+
+    - name: Install asdf plugins
+      run: |
+        asdf plugin add python
+        asdf plugin add poetry
+        asdf plugin add protoc
+        asdf plugin add java
+
+    - name: Cache dependencies
+      id: cache-deps
+      uses: actions/cache@v1
+      with:
+        path: ~/.asdf
+        key: v1-${{ runner.os }}-${{ matrix.python-version }}-asdf-${{ hashFiles(format('{0}{1}', github.workspace, '/poetry.lock')) }}
+        restore-keys: |
+          v1-${{ runner.os }}-${{ matrix.python-version }}-asdf-
+
+    - name: Install python
+      if: steps.cache-deps.outputs.cache-hit != 'true'
+      run: |
+        asdf install python ${{ matrix.python-version }}
+
+    - name: Set python
+      run: |
+        asdf local python ${{ matrix.python-version }}
+
+    - name: Install tools
+      run: |
+        asdf install
+        poetry config virtualenvs.create false
+
+    - name: Install deps
+      run: |
+        poetry install
+
+    - name: Fmt
+      run: |
+        make fmt
+
+    - name: Generate
+      run: |
+        make gen
+
+    - name: Test
+      run: |
+        make test
