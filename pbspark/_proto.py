@@ -40,7 +40,7 @@ def get_spark_schema(
     """Generate a spark schema from a message type or descriptor
 
     Given a message type generated from protoc (or its descriptor),
-    create a spark schema equivalent to the protobuf schema, when
+    create a spark schema derived from the protobuf schema when
     serializing with ``MessageToDict``.
     """
     options = options or {}
