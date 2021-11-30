@@ -65,9 +65,7 @@ def get_spark_schema(
             spark_type = ArrayType(spark_type, True)
         field_name = field.camelcase_name if use_camelcase else field.name
         schema.append((field_name, spark_type, True))
-    struct_args = []
-    for entry in schema:
-        struct_args.append(StructField(*entry))
+    struct_args = [StructField(*entry) for entry in schema]
     return StructType(struct_args)
 
 
