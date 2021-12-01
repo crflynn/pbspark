@@ -1,18 +1,18 @@
 import datetime
+from decimal import Decimal
 
 import pytest
 from google.protobuf.duration_pb2 import Duration
-from google.protobuf.json_format import MessageToDict
 from google.protobuf.timestamp_pb2 import Timestamp
-from pyspark.sql.functions import col
+from pyspark import SparkContext
+from pyspark.serializers import CloudPickleSerializer
 from pyspark.sql.session import SparkSession
 from pyspark.sql.types import *
 
+from example.example_pb2 import DecimalMessage
 from example.example_pb2 import ExampleMessage
 from example.example_pb2 import NestedMessage
-from pbspark import from_protobuf
-from pbspark import get_decoder
-from pbspark import get_spark_schema
+from pbspark._proto import MessageSerializer
 
 
 @pytest.fixture()
@@ -33,12 +33,23 @@ def example():
         enum=ExampleMessage.SomeEnum.first,
         timestamp=ts,
         duration=dur,
+        decimal=DecimalMessage(
+            value="3.50",
+        ),
     )
     return ex
 
 
+decimal_serializer = lambda message: Decimal(message.value)  # noqa
+
+
 def test_get_spark_schema():
-    schema = get_spark_schema(ExampleMessage)
+    ser = MessageSerializer()
+    ser.register_timestamp_serializer()
+    ser.register_serializer(
+        DecimalMessage, decimal_serializer, DecimalType, {"precision": 10, "scale": 2}
+    )
+    schema = ser.get_spark_schema(ExampleMessage)
     expected_schema = StructType(
         [
             StructField("int32", IntegerType(), True),
@@ -83,18 +94,24 @@ def test_get_spark_schema():
                 ),
                 True,
             ),
-            StructField("timestamp", StringType(), True),
+            StructField("timestamp", TimestampType(), True),
             StructField("duration", StringType(), True),
+            StructField("decimal", DecimalType(10, 2), True),
         ]
     )
     assert schema == expected_schema
 
 
 def test_get_decoder(example):
-    decoder = get_decoder(ExampleMessage)
+    ser = MessageSerializer()
+    ser.register_timestamp_serializer()
+    ser.register_serializer(
+        DecimalMessage, decimal_serializer, DecimalType, {"precision": 10, "scale": 2}
+    )
+    decoder = ser.get_decoder(ExampleMessage)
     s = example.SerializeToString()
     decoded = decoder(s)
-    assert decoded == MessageToDict(example)
+    assert decoded == ser.message_to_dict(example)
     expected = {
         "int32": 69,
         "float": 4.2,
@@ -103,29 +120,31 @@ def test_get_decoder(example):
         "nested": {"key": "hello", "value": "world"},
         "stringlist": ["one", "two", "three"],
         "bytes": "c29tZXRoaW5n",  # b64encoded
-        "timestamp": example.timestamp.ToJsonString(),
+        "timestamp": example.timestamp.ToDatetime(),
         "duration": example.duration.ToJsonString(),
+        "decimal": Decimal(example.decimal.value),
     }
     assert decoded == expected
 
 
 def test_from_protobuf(example):
+    ser = MessageSerializer()
+    ser.register_timestamp_serializer()
+    ser.register_serializer(
+        DecimalMessage, decimal_serializer, DecimalType, {"precision": 10, "scale": 2}
+    )
     data = [{"value": example.SerializeToString()}]
 
-    spark = SparkSession.builder.getOrCreate()
+    sc = SparkContext(serializer=CloudPickleSerializer())
+    spark = SparkSession(sc).builder.getOrCreate()
     spark.conf.set("spark.sql.session.timeZone", "UTC")
 
     df = spark.createDataFrame(data)
-    dfs = df.select(from_protobuf(df.value, ExampleMessage).alias("value"))
+    dfs = df.select(ser.from_protobuf(df.value, ExampleMessage).alias("value"))
     dfe = dfs.select("value.*")
     dfe.show()
+    dfe.printSchema()
 
     field_names = [field.name for field in ExampleMessage.DESCRIPTOR.fields]
     for field_name in field_names:
         assert field_name in dfe.columns
-
-    dfts = dfe.withColumn(
-        "timestamp",
-        col("timestamp").cast(TimestampType()),
-    )
-    dfts.show()
