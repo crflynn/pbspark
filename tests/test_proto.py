@@ -12,7 +12,7 @@ from pyspark.sql.types import *
 from example.example_pb2 import DecimalMessage
 from example.example_pb2 import ExampleMessage
 from example.example_pb2 import NestedMessage
-from pbspark._proto import MessageSerializer
+from pbspark._proto import MessageConverter
 
 
 @pytest.fixture()
@@ -44,12 +44,12 @@ decimal_serializer = lambda message: Decimal(message.value)  # noqa
 
 
 def test_get_spark_schema():
-    ser = MessageSerializer()
-    ser.register_timestamp_serializer()
-    ser.register_serializer(
+    mc = MessageConverter()
+    mc.register_timestamp_serializer()
+    mc.register_serializer(
         DecimalMessage, decimal_serializer, DecimalType, {"precision": 10, "scale": 2}
     )
-    schema = ser.get_spark_schema(ExampleMessage)
+    schema = mc.get_spark_schema(ExampleMessage)
     expected_schema = StructType(
         [
             StructField("int32", IntegerType(), True),
@@ -103,15 +103,15 @@ def test_get_spark_schema():
 
 
 def test_get_decoder(example):
-    ser = MessageSerializer()
-    ser.register_timestamp_serializer()
-    ser.register_serializer(
+    mc = MessageConverter()
+    mc.register_timestamp_serializer()
+    mc.register_serializer(
         DecimalMessage, decimal_serializer, DecimalType, {"precision": 10, "scale": 2}
     )
-    decoder = ser.get_decoder(ExampleMessage)
+    decoder = mc.get_decoder(ExampleMessage)
     s = example.SerializeToString()
     decoded = decoder(s)
-    assert decoded == ser.message_to_dict(example)
+    assert decoded == mc.message_to_dict(example)
     expected = {
         "int32": 69,
         "float": 4.2,
@@ -128,9 +128,9 @@ def test_get_decoder(example):
 
 
 def test_from_protobuf(example):
-    ser = MessageSerializer()
-    ser.register_timestamp_serializer()
-    ser.register_serializer(
+    mc = MessageConverter()
+    mc.register_timestamp_serializer()
+    mc.register_serializer(
         DecimalMessage, decimal_serializer, DecimalType, {"precision": 10, "scale": 2}
     )
     data = [{"value": example.SerializeToString()}]
@@ -140,7 +140,7 @@ def test_from_protobuf(example):
     spark.conf.set("spark.sql.session.timeZone", "UTC")
 
     df = spark.createDataFrame(data)
-    dfs = df.select(ser.from_protobuf(df.value, ExampleMessage).alias("value"))
+    dfs = df.select(mc.from_protobuf(df.value, ExampleMessage).alias("value"))
     dfe = dfs.select("value.*")
     dfe.show()
     dfe.printSchema()

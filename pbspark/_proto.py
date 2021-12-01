@@ -76,7 +76,9 @@ class Printer(_Printer):
         return super()._MessageToJsonObject(message)
 
 
-class MessageSerializer:
+class MessageConverter:
+    """Class for converting serialized protobuf messages into spark structs."""
+
     def __init__(self):
         self._custom_serializers = {}
         self._message_type_to_spark_type_map = _MESSAGETYPE_TO_SPARK_TYPE_MAP.copy()

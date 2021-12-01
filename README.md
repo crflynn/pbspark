@@ -30,7 +30,7 @@ Using `pbspark` we can decode the messages into spark `StructType` and then flat
 
 ```python
 from pyspark.sql.session import SparkSession
-from pbspark import MessageSerializer
+from pbspark import MessageConverter
 from example.example_pb2 import SimpleMessage
 
 spark = SparkSession.builder.getOrCreate()
@@ -39,8 +39,8 @@ example = SimpleMessage(name="hello", quantity=5, measure=12.3)
 data = [{"value": example.SerializeToString()}]
 df = spark.createDataFrame(data)
 
-ser = MessageSerializer()
-df_decoded = df.select(ser.from_protobuf(df.value, SimpleMessage).alias("value"))
+mc = MessageConverter()
+df_decoded = df.select(mc.from_protobuf(df.value, SimpleMessage).alias("value"))
 df_flattened = df_decoded.select("value.*")
 df_flattened.show()
 
@@ -61,21 +61,21 @@ Suppose we have a message in which we want to combine fields when we serialize.
 Create and register a custom serializer with the `MessageSerializer`.
 
 ```python
-from pbspark import MessageSerializer
+from pbspark import MessageConverter
 from example.example_pb2 import ExampleMessage
 from example.example_pb2 import NestedMessage
 from pyspark.sql.types import StringType
 
-ser = MessageSerializer()
+mc = MessageConverter()
 # built-in to serialize Timestamp messages to datetime objects
-ser.register_timestamp_serializer()
+mc.register_timestamp_serializer()
 
 # register a custom serializer
 # this will serialize the NestedMessages into a string rather than a
 # struct with `key` and `value` fields
 combine_key_value = lambda message: message.key + ":" + message.value
-    
-ser.register_serializer(NestedMessage, combine_key_value, StringType)
+
+mc.register_serializer(NestedMessage, combine_key_value, StringType)
 
 ...
 
@@ -90,7 +90,7 @@ message = ExampleMessage(nested=NestedMessage(key="hello", value="world"))
 data = [{"value": message.SerializeToString()}]
 df = spark.createDataFrame(data)
 
-df_decoded = df.select(ser.from_protobuf(df.value, ExampleMessage).alias("value"))
+df_decoded = df.select(mc.from_protobuf(df.value, ExampleMessage).alias("value"))
 # rather than a struct the value of `nested` is a string
 df_decoded.select("value.nested").show()
 # +-----------+
