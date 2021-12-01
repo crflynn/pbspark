@@ -73,8 +73,7 @@ ser.register_timestamp_serializer()
 # register a custom serializer
 # this will serialize the NestedMessages into a string rather than a
 # struct with `key` and `value` fields
-def combine_key_value(message: NestedMessage) -> str:
-    return message.key + ":" + message.value
+combine_key_value = lambda message: message.key + ":" + message.value
     
 ser.register_serializer(NestedMessage, combine_key_value, StringType)
 
