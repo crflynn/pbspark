@@ -14,6 +14,30 @@ import typing_extensions
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor = ...
 
+class SimpleMessage(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
+    NAME_FIELD_NUMBER: builtins.int
+    QUANTITY_FIELD_NUMBER: builtins.int
+    MEASURE_FIELD_NUMBER: builtins.int
+    name: typing.Text = ...
+    quantity: builtins.int = ...
+    measure: builtins.float = ...
+    def __init__(
+        self,
+        *,
+        name: typing.Text = ...,
+        quantity: builtins.int = ...,
+        measure: builtins.float = ...,
+    ) -> None: ...
+    def ClearField(
+        self,
+        field_name: typing_extensions.Literal[
+            "measure", b"measure", "name", b"name", "quantity", b"quantity"
+        ],
+    ) -> None: ...
+
+global___SimpleMessage = SimpleMessage
+
 class NestedMessage(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
     KEY_FIELD_NUMBER: builtins.int
