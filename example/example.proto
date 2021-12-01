@@ -5,9 +5,19 @@ package example;
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/duration.proto";
 
+message SimpleMessage {
+  string name = 1;
+  int64 quantity = 2;
+  float measure = 3;
+}
+
 message NestedMessage {
   string key = 1;
   string value = 2;
+}
+
+message DecimalMessage {
+  string value = 1;
 }
 
 message ExampleMessage {
@@ -41,4 +51,5 @@ message ExampleMessage {
   map<string, string> map = 21;
   google.protobuf.Timestamp timestamp = 22;
   google.protobuf.Duration duration = 23;
+  DecimalMessage decimal = 24;
 }

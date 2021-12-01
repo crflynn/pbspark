@@ -14,6 +14,30 @@ import typing_extensions
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor = ...
 
+class SimpleMessage(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
+    NAME_FIELD_NUMBER: builtins.int
+    QUANTITY_FIELD_NUMBER: builtins.int
+    MEASURE_FIELD_NUMBER: builtins.int
+    name: typing.Text = ...
+    quantity: builtins.int = ...
+    measure: builtins.float = ...
+    def __init__(
+        self,
+        *,
+        name: typing.Text = ...,
+        quantity: builtins.int = ...,
+        measure: builtins.float = ...,
+    ) -> None: ...
+    def ClearField(
+        self,
+        field_name: typing_extensions.Literal[
+            "measure", b"measure", "name", b"name", "quantity", b"quantity"
+        ],
+    ) -> None: ...
+
+global___SimpleMessage = SimpleMessage
+
 class NestedMessage(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
     KEY_FIELD_NUMBER: builtins.int
@@ -31,6 +55,21 @@ class NestedMessage(google.protobuf.message.Message):
     ) -> None: ...
 
 global___NestedMessage = NestedMessage
+
+class DecimalMessage(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
+    VALUE_FIELD_NUMBER: builtins.int
+    value: typing.Text = ...
+    def __init__(
+        self,
+        *,
+        value: typing.Text = ...,
+    ) -> None: ...
+    def ClearField(
+        self, field_name: typing_extensions.Literal["value", b"value"]
+    ) -> None: ...
+
+global___DecimalMessage = DecimalMessage
 
 class ExampleMessage(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
@@ -88,6 +127,7 @@ class ExampleMessage(google.protobuf.message.Message):
     MAP_FIELD_NUMBER: builtins.int
     TIMESTAMP_FIELD_NUMBER: builtins.int
     DURATION_FIELD_NUMBER: builtins.int
+    DECIMAL_FIELD_NUMBER: builtins.int
     int32: builtins.int = ...
     int64: builtins.int = ...
     uint32: builtins.int = ...
@@ -122,6 +162,8 @@ class ExampleMessage(google.protobuf.message.Message):
     def timestamp(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
     @property
     def duration(self) -> google.protobuf.duration_pb2.Duration: ...
+    @property
+    def decimal(self) -> global___DecimalMessage: ...
     def __init__(
         self,
         *,
@@ -148,10 +190,13 @@ class ExampleMessage(google.protobuf.message.Message):
         map: typing.Optional[typing.Mapping[typing.Text, typing.Text]] = ...,
         timestamp: typing.Optional[google.protobuf.timestamp_pb2.Timestamp] = ...,
         duration: typing.Optional[google.protobuf.duration_pb2.Duration] = ...,
+        decimal: typing.Optional[global___DecimalMessage] = ...,
     ) -> None: ...
     def HasField(
         self,
         field_name: typing_extensions.Literal[
+            "decimal",
+            b"decimal",
             "duration",
             b"duration",
             "nested",
@@ -173,6 +218,8 @@ class ExampleMessage(google.protobuf.message.Message):
             b"bool",
             "bytes",
             b"bytes",
+            "decimal",
+            b"decimal",
             "double",
             b"double",
             "duration",
