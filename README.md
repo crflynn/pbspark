@@ -84,7 +84,7 @@ from pyspark import SparkContext
 from pyspark.serializers import CloudPickleSerializer
 
 sc = SparkContext(serializer=CloudPickleSerializer())
-spark = SparkSession.builder.getOrCreate()
+spark = SparkSession(sc).builder.getOrCreate()
 
 message = ExampleMessage(nested=NestedMessage(key="hello", value="world"))
 data = [{"value": message.SerializeToString()}]
