@@ -79,7 +79,10 @@ ser.register_serializer(NestedMessage, combine_key_value, StringType)
 ...
 
 from pyspark.sql.session import SparkSession
+from pyspark import SparkContext
+from pyspark.serializers import CloudPickleSerializer
 
+sc = SparkContext(serializer=CloudPickleSerializer())
 spark = SparkSession.builder.getOrCreate()
 
 message = ExampleMessage(nested=NestedMessage(key="hello", value="world"))
