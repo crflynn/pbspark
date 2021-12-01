@@ -54,7 +54,7 @@ df_flattened.schema
 # StructType(List(StructField(name,StringType,true),StructField(quantity,IntegerType,true),StructField(measure,FloatType,true))
 ```
 
-By default, protobuf's `MessageToDict` serializes everything into JSON compatible objects. To handle custom serialization of other types, for instance `google.protobuf.Timestamp` or other special types, you can use a custom serializer.
+By default, protobuf's `MessageToDict` serializes everything into JSON compatible objects. To handle custom serialization of other types, for instance `google.protobuf.Timestamp`, you can use a custom serializer.
 
 Suppose we have a message in which we want to combine fields when we serialize.
 
