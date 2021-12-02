@@ -3,6 +3,23 @@ name = "pbspark"
 version = "0.1.0"
 description = "Decode protobuf messages into spark dataframes"
 authors = ["flynn <crf204@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+homepage = "https://github.com/crflynn/pbspark"
+repository = "https://github.com/crflynn/pbspark"
+documentation = "https://github.com/crflynn/pbspark"
+include = [
+    "CHANGELOG.md",
+    "LICENSE.txt",
+    "README.md",
+]
+keywords = ["spark", "protobuf", "pyspark"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Topic :: Database",
+]
 
 [tool.poetry.dependencies]
 python = "^3.7"
