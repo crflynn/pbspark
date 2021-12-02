@@ -12,3 +12,20 @@ gen:
 
 test:
 	poetry run pytest tests/
+
+clean:
+	rm -rf dist
+
+.PHONY: dist
+dist:
+	poetry build
+
+sdist:
+	poetry build -f sdist
+
+publish: clean dist
+	poetry publish
+
+release: clean sdist
+	ghr -u crflynn -r pbspark -c $(shell git rev-parse HEAD) -delete -b "release" -n $(shell poetry version -s) $(shell poetry version -s) dist/*.tar.gz
+
