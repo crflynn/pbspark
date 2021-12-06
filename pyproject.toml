@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pbspark"
-version = "0.1.0"
+version = "0.2.0"
 description = "Decode protobuf messages into spark dataframes"
 authors = ["flynn <crf204@gmail.com>"]
 license = "MIT"
