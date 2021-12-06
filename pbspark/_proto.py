@@ -1,9 +1,9 @@
-import datetime
 import inspect
 import typing as t
 
 from google.protobuf.descriptor import FieldDescriptor
-from google.protobuf.json_format import _Printer  # type: ignore  # noqa
+from google.protobuf.json_format import _Parser as _PBParser  # type: ignore  # noqa
+from google.protobuf.json_format import _Printer as _PBPrinter  # type: ignore  # noqa
 from google.protobuf.message import Message
 from google.protobuf.pyext._message import Descriptor  # type: ignore
 from google.protobuf.timestamp_pb2 import Timestamp
@@ -11,6 +11,9 @@ from pyspark.sql import Column
 from pyspark.sql.functions import col
 from pyspark.sql.functions import udf
 from pyspark.sql.types import *
+
+from pbspark._timestamp import _from_datetime
+from pbspark._timestamp import _to_datetime
 
 # Built in types like these have special methods
 # for serialization via MessageToDict. Because the
@@ -36,32 +39,9 @@ _CPPTYPE_TO_SPARK_TYPE_MAP: t.Dict[int, t.Type[DataType]] = {
     FieldDescriptor.CPPTYPE_STRING: StringType,
 }
 
-# region Timestamp code from WKT
-_EPOCH_DATETIME = datetime.datetime.utcfromtimestamp(0)
-_NANOS_PER_MICROSECOND = 1000
 
-
-def _round_toward_zero(value, divider):
-    result = value // divider
-    remainder = value % divider
-    if result < 0 < remainder:
-        return result + 1
-    else:
-        return result
-
-
-def _to_datetime(message: Timestamp) -> datetime.datetime:
-    """Serialize a Timestamp to a python datetime."""
-    return _EPOCH_DATETIME + datetime.timedelta(
-        seconds=message.seconds,
-        microseconds=_round_toward_zero(message.nanos, _NANOS_PER_MICROSECOND),
-    )
-
-
-# endregion
-
-
-class Printer(_Printer):
+# region serde overrides
+class _Printer(_PBPrinter):
     """Subclass the protobuf printer to override serialization"""
 
     def __init__(self, custom_serializers=None, **kwargs):
@@ -76,11 +56,27 @@ class Printer(_Printer):
         return super()._MessageToJsonObject(message)
 
 
+class _Parser(_PBParser):
+    def __init__(self, custom_deserializers=None, **kwargs):
+        self._custom_deserializers = custom_deserializers or {}
+        super().__init__(**kwargs)
+
+    def ConvertMessage(self, value, message):
+        full_name = message.DESCRIPTOR.full_name
+        if full_name in self._custom_deserializers:
+            return self._custom_deserializers[full_name](value)
+        return super().ConvertMessage(value, message)
+
+
+# endregion
+
+
 class MessageConverter:
     """Class for converting serialized protobuf messages into spark structs."""
 
     def __init__(self):
-        self._custom_serializers = {}
+        self._custom_serializers: t.Dict[str, t.Callable] = {}
+        self._custom_deserializers: t.Dict[str, t.Callable] = {}
         self._message_type_to_spark_type_map = _MESSAGETYPE_TO_SPARK_TYPE_MAP.copy()
         self._message_type_to_spark_type_kwargs_map = (
             _MESSAGETYPE_TO_SPARK_TYPE_KWARGS_MAP.copy()
@@ -118,6 +114,14 @@ class MessageConverter:
                 full_name
             ] = _MESSAGETYPE_TO_SPARK_TYPE_KWARGS_MAP[full_name]
 
+    def register_deserializer(self, message: t.Type[Message], deserializer: t.Callable):
+        full_name = message.DESCRIPTOR.full_name
+        self._custom_deserializers[full_name] = deserializer
+
+    def unregister_deserializer(self, message: t.Type[Message]):
+        full_name = message.DESCRIPTOR.full_name
+        self._custom_deserializers.pop(full_name, None)
+
     def register_timestamp_serializer(self):
         """Serialize Timestamps to datetimes instead of strings."""
         self.register_serializer(Timestamp, _to_datetime, TimestampType)
@@ -125,9 +129,15 @@ class MessageConverter:
     def unregister_timestamp_serializer(self):
         self.unregister_serializer(Timestamp)
 
+    def register_timestamp_deserializer(self):
+        self.register_deserializer(Timestamp, _from_datetime)
+
+    def unregister_timestamp_deserializer(self):
+        self.unregister_deserializer(Timestamp)
+
     def message_to_dict(
         self,
-        message,
+        message: Message,
         including_default_value_fields=False,
         preserving_proto_field_name=False,
         use_integers_for_enums=False,
@@ -135,7 +145,7 @@ class MessageConverter:
         float_precision=None,
     ):
         """Custom MessageToDict using overridden printer."""
-        printer = Printer(
+        printer = _Printer(
             custom_serializers=self._custom_serializers,
             including_default_value_fields=including_default_value_fields,
             preserving_proto_field_name=preserving_proto_field_name,
@@ -143,7 +153,22 @@ class MessageConverter:
             descriptor_pool=descriptor_pool,
             float_precision=float_precision,
         )
-        return printer._MessageToJsonObject(message)
+        return printer._MessageToJsonObject(message=message)
+
+    def parse_dict(
+        self,
+        value: dict,
+        message: Message,
+        ignore_unknown_fields=False,
+        descriptor_pool=None,
+    ):
+        """Custom ParseDict using overridden parser."""
+        parser = _Parser(
+            custom_deserializers=self._custom_deserializers,
+            ignore_unknown_fields=ignore_unknown_fields,
+            descriptor_pool=descriptor_pool,
+        )
+        return parser.ConvertMessage(value=value, message=message)
 
     def get_spark_schema(
         self,
@@ -237,3 +262,41 @@ class MessageConverter:
         column = col(data) if isinstance(data, str) else data
         protobuf_decoder_udf = self.get_decoder_udf(message_type, options)
         return protobuf_decoder_udf(column)
+
+    def get_encoder(
+        self, message_type: t.Type[Message], options: t.Optional[dict] = None
+    ) -> t.Callable:
+        kwargs = options or {}
+
+        def encoder(s: dict) -> bytes:
+            message = message_type()
+            self.parse_dict(s, message, **kwargs)
+            return message.SerializeToString()
+
+        return encoder
+
+    def get_encoder_udf(
+        self, message_type: t.Type[Message], options: t.Optional[dict] = None
+    ) -> t.Callable:
+        return udf(
+            self.get_encoder(message_type=message_type, options=options),
+            BinaryType(),
+        )
+
+    def to_protobuf(
+        self,
+        data: t.Union[Column, str],
+        message_type: t.Type[Message],
+        options: t.Optional[dict] = None,
+    ) -> Column:
+        """Serialize spark structs to protobuf messages.
+
+        Given a column and protobuf message type, serialize
+        protobuf messages also using our custom serializers.
+
+        The ``options`` arg should be a dictionary for the kwargs passed
+        our parse_dict (same args as protobuf's ParseDict).
+        """
+        column = col(data) if isinstance(data, str) else data
+        protobuf_encoder_udf = self.get_encoder_udf(message_type, options)
+        return protobuf_encoder_udf(column)
