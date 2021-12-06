@@ -9,9 +9,9 @@ homepage = "https://github.com/crflynn/pbspark"
 repository = "https://github.com/crflynn/pbspark"
 documentation = "https://github.com/crflynn/pbspark"
 include = [
-    "CHANGELOG.md",
-    "LICENSE.txt",
-    "README.md",
+    { path="CHANGELOG.md", format="sdist" },
+    { path="LICENSE.txt", format="sdist" },
+    { path="README.md", format="sdist" },
 ]
 keywords = ["spark", "protobuf", "pyspark"]
 classifiers = [

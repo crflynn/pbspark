@@ -40,6 +40,14 @@ def example():
     return ex
 
 
+@pytest.fixture(scope="session")
+def spark():
+    sc = SparkContext(serializer=CloudPickleSerializer())
+    spark = SparkSession(sc).builder.getOrCreate()
+    spark.conf.set("spark.sql.session.timeZone", "UTC")
+    return spark
+
+
 decimal_serializer = lambda message: Decimal(message.value)  # noqa
 
 
@@ -127,17 +135,14 @@ def test_get_decoder(example):
     assert decoded == expected
 
 
-def test_from_protobuf(example):
+def test_from_protobuf(example, spark):
     mc = MessageConverter()
     mc.register_timestamp_serializer()
     mc.register_serializer(
         DecimalMessage, decimal_serializer, DecimalType, {"precision": 10, "scale": 2}
     )
-    data = [{"value": example.SerializeToString()}]
 
-    sc = SparkContext(serializer=CloudPickleSerializer())
-    spark = SparkSession(sc).builder.getOrCreate()
-    spark.conf.set("spark.sql.session.timeZone", "UTC")
+    data = [{"value": example.SerializeToString()}]
 
     df = spark.createDataFrame(data)
     dfs = df.select(mc.from_protobuf(df.value, ExampleMessage).alias("value"))
@@ -148,3 +153,21 @@ def test_from_protobuf(example):
     field_names = [field.name for field in ExampleMessage.DESCRIPTOR.fields]
     for field_name in field_names:
         assert field_name in dfe.columns
+
+
+def test_round_trip(example, spark):
+    mc = MessageConverter()
+    mc.register_timestamp_serializer()
+    mc.register_timestamp_deserializer()
+
+    data = [{"value": example.SerializeToString()}]
+
+    df = spark.createDataFrame(data)
+    df.show()
+
+    df.printSchema()
+    dfs = df.select(mc.from_protobuf(df.value, ExampleMessage).alias("value"))
+    dfs.show()
+    dfr = dfs.select(mc.to_protobuf(dfs.value, ExampleMessage).alias("value"))
+    dfr.show()
+    dfr.printSchema()
