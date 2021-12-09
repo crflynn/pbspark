@@ -42,14 +42,11 @@ _CPPTYPE_TO_SPARK_TYPE_MAP: t.Dict[int, t.Type[DataType]] = {
 
 # region serde overrides
 class _Printer(_PBPrinter):
-    """Subclass the protobuf printer to override serialization"""
-
     def __init__(self, custom_serializers=None, **kwargs):
         self._custom_serializers = custom_serializers or {}
         super().__init__(**kwargs)
 
     def _MessageToJsonObject(self, message):
-        """Override serialization to prioritize custom serializers."""
         full_name = message.DESCRIPTOR.full_name
         if full_name in self._custom_serializers:
             return self._custom_serializers[full_name](message)
@@ -72,8 +69,6 @@ class _Parser(_PBParser):
 
 
 class MessageConverter:
-    """Class for converting serialized protobuf messages into spark structs."""
-
     def __init__(self):
         self._custom_serializers: t.Dict[str, t.Callable] = {}
         self._custom_deserializers: t.Dict[str, t.Callable] = {}
@@ -122,8 +117,8 @@ class MessageConverter:
         full_name = message.DESCRIPTOR.full_name
         self._custom_deserializers.pop(full_name, None)
 
+    # region timestamp
     def register_timestamp_serializer(self):
-        """Serialize Timestamps to datetimes instead of strings."""
         self.register_serializer(Timestamp, _to_datetime, TimestampType)
 
     def unregister_timestamp_serializer(self):
@@ -134,6 +129,8 @@ class MessageConverter:
 
     def unregister_timestamp_deserializer(self):
         self.unregister_deserializer(Timestamp)
+
+    # endregion
 
     def message_to_dict(
         self,

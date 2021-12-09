@@ -1,6 +1,6 @@
 # pbspark
 
-This package provides a way to deserialize protobuf messages into pyspark dataframes using a pyspark udf.
+This package provides a way to convert protobuf messages into pyspark dataframes and vice versa using a pyspark udf.
 
 ## Installation
 
@@ -54,9 +54,25 @@ df_flattened.schema
 # StructType(List(StructField(name,StringType,true),StructField(quantity,IntegerType,true),StructField(measure,FloatType,true))
 ```
 
-By default, protobuf's `MessageToDict` serializes everything into JSON compatible objects. To handle custom serialization of other types, for instance `google.protobuf.Timestamp`, you can use a custom serializer.
+We can also re-encode them into protobuf strings.
 
-Suppose we have a message in which we want to combine fields when we serialize.
+```python
+df_reencoded = df_decoded.select(mc.to_protobuf(df_decoded.value, SimpleMessage).alias("value"))
+```
+
+By default, protobuf's `MessageToDict` serializes everything into JSON compatible objects. To handle custom serialization of other types, for instance `google.protobuf.Timestamp`, you can use a custom serializer. 
+
+Serde between `google.protobuf.Timestamp` and python `datetime` objects can be enabled using:
+
+```python
+from pbspark import MessageConverter
+
+mc = MessageConverter()
+mc.register_timestamp_serializer()
+mc.register_timestamp_deserializer()
+```
+
+Custom serde is also supported. Suppose we have a message in which we want to combine fields when we serialize.
 
 Create and register a custom serializer with the `MessageSerializer`.
 
@@ -93,6 +109,7 @@ df = spark.createDataFrame(data)
 df_decoded = df.select(mc.from_protobuf(df.value, ExampleMessage).alias("value"))
 # rather than a struct the value of `nested` is a string
 df_decoded.select("value.nested").show()
+
 # +-----------+
 # |     nested|
 # +-----------+
