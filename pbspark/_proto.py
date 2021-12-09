@@ -44,27 +44,27 @@ _CPPTYPE_TO_SPARK_TYPE_MAP: t.Dict[int, t.Type[DataType]] = {
 class _Printer(_PBPrinter):
     """Subclass the protobuf printer to override serialization"""
 
-    def __init__(self, custom_serializers=None, **kwargs):
-        self._custom_serializers = custom_serializers or {}
-        super().__init__(**kwargs)
-
-    def _MessageToJsonObject(self, message):
-        """Override serialization to prioritize custom serializers."""
-        full_name = message.DESCRIPTOR.full_name
-        if full_name in self._custom_serializers:
-            return self._custom_serializers[full_name](message)
-        return super()._MessageToJsonObject(message)
-
-
-class _Parser(_PBParser):
     def __init__(self, custom_deserializers=None, **kwargs):
         self._custom_deserializers = custom_deserializers or {}
         super().__init__(**kwargs)
 
-    def ConvertMessage(self, value, message):
+    def _MessageToJsonObject(self, message):
+        """Override deserialization to prioritize custom deserializers."""
         full_name = message.DESCRIPTOR.full_name
         if full_name in self._custom_deserializers:
-            return self._custom_deserializers[full_name](value)
+            return self._custom_deserializers[full_name](message)
+        return super()._MessageToJsonObject(message)
+
+
+class _Parser(_PBParser):
+    def __init__(self, custom_serializers=None, **kwargs):
+        self._custom_serializers = custom_serializers or {}
+        super().__init__(**kwargs)
+
+    def ConvertMessage(self, value, message):
+        full_name = message.DESCRIPTOR.full_name
+        if full_name in self._custom_serializers:
+            return self._custom_serializers[full_name](value)
         return super().ConvertMessage(value, message)
 
 
@@ -82,27 +82,27 @@ class MessageConverter:
             _MESSAGETYPE_TO_SPARK_TYPE_KWARGS_MAP.copy()
         )
 
-    def register_serializer(
+    def register_deserializer(
         self,
         message: t.Type[Message],
-        serializer: t.Callable,
+        deserializer: t.Callable,
         return_type: t.Type[DataType],
         return_type_kwargs: t.Dict[str, t.Any] = None,
     ):
-        """Map a message type to a custom serializer and spark output type.
+        """Map a message type to a custom deserializer and spark output type.
 
-        The serializer should be a function which returns an object which
+        The deserializer should be a function which returns an object which
         can be coerced into the spark return type.
         """
         full_name = message.DESCRIPTOR.full_name
-        self._custom_serializers[full_name] = serializer
+        self._custom_deserializers[full_name] = deserializer
         self._message_type_to_spark_type_map[full_name] = return_type
         if return_type_kwargs is not None:
             self._message_type_to_spark_type_kwargs_map[full_name] = return_type_kwargs
 
-    def unregister_serializer(self, message: t.Type[Message]):
+    def unregister_deserializer(self, message: t.Type[Message]):
         full_name = message.DESCRIPTOR.full_name
-        self._custom_serializers.pop(full_name, None)
+        self._custom_deserializers.pop(full_name, None)
         self._message_type_to_spark_type_map.pop(full_name, None)
         self._message_type_to_spark_type_kwargs_map.pop(full_name, None)
         if full_name in _MESSAGETYPE_TO_SPARK_TYPE_MAP:
@@ -114,26 +114,26 @@ class MessageConverter:
                 full_name
             ] = _MESSAGETYPE_TO_SPARK_TYPE_KWARGS_MAP[full_name]
 
-    def register_deserializer(self, message: t.Type[Message], deserializer: t.Callable):
+    def register_serializer(self, message: t.Type[Message], serializer: t.Callable):
         full_name = message.DESCRIPTOR.full_name
-        self._custom_deserializers[full_name] = deserializer
+        self._custom_serializers[full_name] = serializer
 
-    def unregister_deserializer(self, message: t.Type[Message]):
+    def unregister_serializer(self, message: t.Type[Message]):
         full_name = message.DESCRIPTOR.full_name
-        self._custom_deserializers.pop(full_name, None)
-
-    def register_timestamp_serializer(self):
-        """Serialize Timestamps to datetimes instead of strings."""
-        self.register_serializer(Timestamp, _to_datetime, TimestampType)
-
-    def unregister_timestamp_serializer(self):
-        self.unregister_serializer(Timestamp)
+        self._custom_serializers.pop(full_name, None)
 
     def register_timestamp_deserializer(self):
-        self.register_deserializer(Timestamp, _from_datetime)
+        """Serialize Timestamps to datetimes instead of strings."""
+        self.register_deserializer(Timestamp, _to_datetime, TimestampType)
 
     def unregister_timestamp_deserializer(self):
         self.unregister_deserializer(Timestamp)
+
+    def register_timestamp_serializer(self):
+        self.register_serializer(Timestamp, _from_datetime)
+
+    def unregister_timestamp_serializer(self):
+        self.unregister_serializer(Timestamp)
 
     def message_to_dict(
         self,
@@ -146,7 +146,7 @@ class MessageConverter:
     ):
         """Custom MessageToDict using overridden printer."""
         printer = _Printer(
-            custom_serializers=self._custom_serializers,
+            custom_deserializers=self._custom_deserializers,
             including_default_value_fields=including_default_value_fields,
             preserving_proto_field_name=preserving_proto_field_name,
             use_integers_for_enums=use_integers_for_enums,
@@ -164,7 +164,7 @@ class MessageConverter:
     ):
         """Custom ParseDict using overridden parser."""
         parser = _Parser(
-            custom_deserializers=self._custom_deserializers,
+            custom_serializers=self._custom_serializers,
             ignore_unknown_fields=ignore_unknown_fields,
             descriptor_pool=descriptor_pool,
         )
