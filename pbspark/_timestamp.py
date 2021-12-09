@@ -18,7 +18,7 @@ def _round_toward_zero(value, divider):
 
 
 def _to_datetime(message: Timestamp) -> datetime.datetime:
-    """Serialize a Timestamp to a python datetime."""
+    """Convert a Timestamp to a python datetime."""
     return _EPOCH_DATETIME + datetime.timedelta(
         seconds=message.seconds,
         microseconds=_round_toward_zero(message.nanos, _NANOS_PER_MICROSECOND),
@@ -26,7 +26,7 @@ def _to_datetime(message: Timestamp) -> datetime.datetime:
 
 
 def _from_datetime(dt):
-    """Converts datetime to Timestamp."""
+    """Convert a python datetime to Timestamp."""
     return Timestamp(
         seconds=calendar.timegm(dt.utctimetuple()),
         nanos=dt.microsecond * _NANOS_PER_MICROSECOND,
