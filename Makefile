@@ -3,7 +3,7 @@ export PROTO_PATH=.
 fmt:
 	poetry run isort .
 	poetry run black .
-	poetry run mypy .
+	poetry run mypy . --show-error-codes
 
 gen:
 	poetry run protoc -I $$PROTO_PATH --python_out=$$PROTO_PATH --mypy_out=$$PROTO_PATH --proto_path=$$PROTO_PATH $$PROTO_PATH/example/*.proto
