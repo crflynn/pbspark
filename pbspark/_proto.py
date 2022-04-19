@@ -218,7 +218,7 @@ class MessageConverter:
         if inspect.isclass(descriptor) and issubclass(descriptor, Message):
             descriptor_ = descriptor.DESCRIPTOR
         else:
-            descriptor_ = descriptor
+            descriptor_ = descriptor  # type: ignore[assignment]
         for field in descriptor_.fields:
             spark_type: DataType
             if field.cpp_type == FieldDescriptor.CPPTYPE_MESSAGE:
