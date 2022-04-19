@@ -3,7 +3,8 @@
 ## 2022-04-19 - 0.3.0
 
 * Breaking: protobuf bytes fields will now convert directly to spark ByteType and vice versa.
-* Relax constraints on dependencies
+* Relax constraint on pyspark
+* Bump minimum protobuf version to 3.20.0
 
 ## 2021-12-05 - 0.2.0
 

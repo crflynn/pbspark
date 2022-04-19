@@ -3,9 +3,10 @@ import typing as t
 from functools import wraps
 
 from google.protobuf import json_format
+from google.protobuf.descriptor import Descriptor
 from google.protobuf.descriptor import FieldDescriptor
+from google.protobuf.descriptor_pool import DescriptorPool
 from google.protobuf.message import Message
-from google.protobuf.pyext._message import Descriptor  # type: ignore
 from google.protobuf.timestamp_pb2 import Timestamp
 from pyspark.sql import Column
 from pyspark.sql.functions import col
@@ -73,11 +74,11 @@ class _Parser(json_format._Parser):  # type: ignore
         self._custom_deserializers = custom_deserializers or {}
         super().__init__(**kwargs)
 
-    def ConvertMessage(self, value, message):
+    def ConvertMessage(self, value, message, path):
         full_name = message.DESCRIPTOR.full_name
         if full_name in self._custom_deserializers:
             return self._custom_deserializers[full_name](value)
-        return super().ConvertMessage(value, message)
+        return super().ConvertMessage(value, message, path)
 
 
 # protobuf converts to/from b64 strings, but we prefer to stay as bytes.
@@ -190,16 +191,18 @@ class MessageConverter:
         self,
         value: dict,
         message: Message,
-        ignore_unknown_fields=False,
-        descriptor_pool=None,
+        ignore_unknown_fields: bool = False,
+        descriptor_pool: t.Optional[DescriptorPool] = None,
+        max_recursion_depth: int = 100,
     ):
         """Custom ParseDict using overridden parser."""
         parser = _Parser(
             custom_deserializers=self._custom_deserializers,
             ignore_unknown_fields=ignore_unknown_fields,
             descriptor_pool=descriptor_pool,
+            max_recursion_depth=max_recursion_depth,
         )
-        return parser.ConvertMessage(value=value, message=message)
+        return parser.ConvertMessage(value=value, message=message, path=None)
 
     def get_spark_schema(
         self,

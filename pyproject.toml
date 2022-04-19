@@ -24,7 +24,7 @@ classifiers = [
 [tool.poetry.dependencies]
 python = "^3.7"
 pyspark = ">=3.2.0"
-protobuf = ">=3.19.1"
+protobuf = ">=3.20.0"
 
 [tool.poetry.dev-dependencies]
 black = "^21.11b1"
