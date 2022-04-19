@@ -12,16 +12,16 @@ import google.protobuf.timestamp_pb2
 import typing
 import typing_extensions
 
-DESCRIPTOR: google.protobuf.descriptor.FileDescriptor = ...
+DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
 
 class SimpleMessage(google.protobuf.message.Message):
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
     NAME_FIELD_NUMBER: builtins.int
     QUANTITY_FIELD_NUMBER: builtins.int
     MEASURE_FIELD_NUMBER: builtins.int
-    name: typing.Text = ...
-    quantity: builtins.int = ...
-    measure: builtins.float = ...
+    name: typing.Text
+    quantity: builtins.int
+    measure: builtins.float
     def __init__(
         self,
         *,
@@ -39,11 +39,11 @@ class SimpleMessage(google.protobuf.message.Message):
 global___SimpleMessage = SimpleMessage
 
 class NestedMessage(google.protobuf.message.Message):
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
     KEY_FIELD_NUMBER: builtins.int
     VALUE_FIELD_NUMBER: builtins.int
-    key: typing.Text = ...
-    value: typing.Text = ...
+    key: typing.Text
+    value: typing.Text
     def __init__(
         self,
         *,
@@ -57,9 +57,9 @@ class NestedMessage(google.protobuf.message.Message):
 global___NestedMessage = NestedMessage
 
 class DecimalMessage(google.protobuf.message.Message):
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
     VALUE_FIELD_NUMBER: builtins.int
-    value: typing.Text = ...
+    value: typing.Text
     def __init__(
         self,
         *,
@@ -72,28 +72,31 @@ class DecimalMessage(google.protobuf.message.Message):
 global___DecimalMessage = DecimalMessage
 
 class ExampleMessage(google.protobuf.message.Message):
-    DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
-    class SomeEnum(_SomeEnum, metaclass=_SomeEnumEnumTypeWrapper):
-        pass
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
     class _SomeEnum:
-        V = typing.NewType("V", builtins.int)
+        ValueType = typing.NewType("ValueType", builtins.int)
+        V: typing_extensions.TypeAlias = ValueType
     class _SomeEnumEnumTypeWrapper(
-        google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_SomeEnum.V],
+        google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[
+            ExampleMessage._SomeEnum.ValueType
+        ],
         builtins.type,
     ):
-        DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor = ...
-        unspecified = ExampleMessage.SomeEnum.V(0)
-        first = ExampleMessage.SomeEnum.V(1)
-        second = ExampleMessage.SomeEnum.V(2)
-    unspecified = ExampleMessage.SomeEnum.V(0)
-    first = ExampleMessage.SomeEnum.V(1)
-    second = ExampleMessage.SomeEnum.V(2)
+        DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+        unspecified: ExampleMessage._SomeEnum.ValueType  # 0
+        first: ExampleMessage._SomeEnum.ValueType  # 1
+        second: ExampleMessage._SomeEnum.ValueType  # 2
+    class SomeEnum(_SomeEnum, metaclass=_SomeEnumEnumTypeWrapper):
+        pass
+    unspecified: ExampleMessage.SomeEnum.ValueType  # 0
+    first: ExampleMessage.SomeEnum.ValueType  # 1
+    second: ExampleMessage.SomeEnum.ValueType  # 2
     class MapEntry(google.protobuf.message.Message):
-        DESCRIPTOR: google.protobuf.descriptor.Descriptor = ...
+        DESCRIPTOR: google.protobuf.descriptor.Descriptor
         KEY_FIELD_NUMBER: builtins.int
         VALUE_FIELD_NUMBER: builtins.int
-        key: typing.Text = ...
-        value: typing.Text = ...
+        key: typing.Text
+        value: typing.Text
         def __init__(
             self,
             *,
@@ -128,15 +131,15 @@ class ExampleMessage(google.protobuf.message.Message):
     TIMESTAMP_FIELD_NUMBER: builtins.int
     DURATION_FIELD_NUMBER: builtins.int
     DECIMAL_FIELD_NUMBER: builtins.int
-    int32: builtins.int = ...
-    int64: builtins.int = ...
-    uint32: builtins.int = ...
-    uint64: builtins.int = ...
-    double: builtins.float = ...
-    float: builtins.float = ...
-    bool: builtins.bool = ...
-    enum: global___ExampleMessage.SomeEnum.V = ...
-    string: typing.Text = ...
+    int32: builtins.int
+    int64: builtins.int
+    uint32: builtins.int
+    uint64: builtins.int
+    double: builtins.float
+    float: builtins.float
+    bool: builtins.bool
+    enum: global___ExampleMessage.SomeEnum.ValueType
+    string: typing.Text
     @property
     def nested(self) -> global___NestedMessage: ...
     @property
@@ -145,15 +148,15 @@ class ExampleMessage(google.protobuf.message.Message):
     ) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[
         typing.Text
     ]: ...
-    bytes: builtins.bytes = ...
-    sfixed32: builtins.int = ...
-    sfixed64: builtins.int = ...
-    sint32: builtins.int = ...
-    sint64: builtins.int = ...
-    fixed32: builtins.int = ...
-    fixed64: builtins.int = ...
-    oneofstring: typing.Text = ...
-    oneofint32: builtins.int = ...
+    bytes: builtins.bytes
+    sfixed32: builtins.int
+    sfixed64: builtins.int
+    sint32: builtins.int
+    sint64: builtins.int
+    fixed32: builtins.int
+    fixed64: builtins.int
+    oneofstring: typing.Text
+    oneofint32: builtins.int
     @property
     def map(
         self,
@@ -174,7 +177,7 @@ class ExampleMessage(google.protobuf.message.Message):
         double: builtins.float = ...,
         float: builtins.float = ...,
         bool: builtins.bool = ...,
-        enum: global___ExampleMessage.SomeEnum.V = ...,
+        enum: global___ExampleMessage.SomeEnum.ValueType = ...,
         string: typing.Text = ...,
         nested: typing.Optional[global___NestedMessage] = ...,
         stringlist: typing.Optional[typing.Iterable[typing.Text]] = ...,

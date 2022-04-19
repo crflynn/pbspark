@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "pbspark"
-version = "0.2.0"
-description = "Decode protobuf messages into spark dataframes"
+version = "0.3.0"
+description = "Convert between protobuf messages and pyspark dataframes"
 authors = ["flynn <crf204@gmail.com>"]
 license = "MIT"
 readme = "README.md"
@@ -23,16 +23,17 @@ classifiers = [
 
 [tool.poetry.dependencies]
 python = "^3.7"
-pyspark = "^3.2.0"
-protobuf = "^3.19.1"
+pyspark = ">=3.2.0"
+protobuf = ">=3.20.0"
 
 [tool.poetry.dev-dependencies]
 black = "^21.11b1"
 isort = "^5.10.1"
 pytest = "^6.2.5"
 mypy-protobuf = "^3.0.0"
-mypy = "^0.910"
 types-protobuf = "^3.18.2"
+click = "8.0.4"  # https://github.com/psf/black/issues/2964
+mypy = "^0.942"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
