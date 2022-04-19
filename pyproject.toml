@@ -33,6 +33,7 @@ pytest = "^6.2.5"
 mypy-protobuf = "^3.0.0"
 mypy = "^0.910"
 types-protobuf = "^3.18.2"
+click = "8.0.4"  # https://github.com/psf/black/issues/2964
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
