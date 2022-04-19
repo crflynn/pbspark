@@ -60,9 +60,9 @@ We can also re-encode them into protobuf strings.
 df_reencoded = df_decoded.select(mc.to_protobuf(df_decoded.value, SimpleMessage).alias("value"))
 ```
 
-By default, protobuf's `MessageToDict` serializes everything into JSON compatible objects. To handle custom serialization of other types, for instance `google.protobuf.Timestamp`, you can use a custom serializer. 
+`pbspark` uses protobuf's `MessageToDict`, which deserializes everything into JSON compatible objects by default. The exception is the bytes type, which `MessageToDict` would decode to a base64-encoded string; `pbspark` will decode any bytes fields directly to a spark `ByteType`.
 
-Serde between `google.protobuf.Timestamp` and python `datetime` objects can be enabled using:
+Conversion between `google.protobuf.Timestamp` and spark `TimestampType` can be enabled using:
 
 ```python
 from pbspark import MessageConverter
@@ -74,7 +74,7 @@ mc.register_timestamp_deserializer()
 
 Custom serde is also supported. Suppose we have a message in which we want to combine fields when we serialize.
 
-Create and register a custom serializer with the `MessageSerializer`.
+Create and register a custom serializer with the `MessageConverter`.
 
 ```python
 from pbspark import MessageConverter

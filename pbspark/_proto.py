@@ -1,9 +1,9 @@
 import inspect
 import typing as t
+from functools import wraps
 
+from google.protobuf import json_format
 from google.protobuf.descriptor import FieldDescriptor
-from google.protobuf.json_format import _Parser as _PBParser  # type: ignore  # noqa
-from google.protobuf.json_format import _Printer as _PBPrinter  # type: ignore  # noqa
 from google.protobuf.message import Message
 from google.protobuf.pyext._message import Descriptor  # type: ignore
 from google.protobuf.timestamp_pb2 import Timestamp
@@ -26,7 +26,10 @@ _MESSAGETYPE_TO_SPARK_TYPE_MAP: t.Dict[str, t.Type[DataType]] = {
 _MESSAGETYPE_TO_SPARK_TYPE_KWARGS_MAP: t.Dict[str, t.Dict[str, t.Any]] = {}
 
 # Protobuf types map to these CPP Types. We map
-# them to Spark types for generating a spark schema
+# them to Spark types for generating a spark schema.
+# Note that bytes fields are specified by the `type` attribute in addition to
+# the `cpp_type` attribute so there is special handling in the `get_spark_schema`
+# method.
 _CPPTYPE_TO_SPARK_TYPE_MAP: t.Dict[int, t.Type[DataType]] = {
     FieldDescriptor.CPPTYPE_INT32: IntegerType,
     FieldDescriptor.CPPTYPE_INT64: LongType,
@@ -41,7 +44,9 @@ _CPPTYPE_TO_SPARK_TYPE_MAP: t.Dict[int, t.Type[DataType]] = {
 
 
 # region serde overrides
-class _Printer(_PBPrinter):
+class _Printer(json_format._Printer):  # type: ignore
+    """Printer override to handle custom messages and byte fields."""
+
     def __init__(self, custom_serializers=None, **kwargs):
         self._custom_serializers = custom_serializers or {}
         super().__init__(**kwargs)
@@ -52,8 +57,18 @@ class _Printer(_PBPrinter):
             return self._custom_serializers[full_name](message)
         return super()._MessageToJsonObject(message)
 
+    def _FieldToJsonObject(self, field, value):
+        if (
+            field.cpp_type == FieldDescriptor.CPPTYPE_STRING
+            and field.type == FieldDescriptor.TYPE_BYTES
+        ):
+            return value
+        return super()._FieldToJsonObject(field, value)
 
-class _Parser(_PBParser):
+
+class _Parser(json_format._Parser):  # type: ignore
+    """Parser override to handle custom messages."""
+
     def __init__(self, custom_deserializers=None, **kwargs):
         self._custom_deserializers = custom_deserializers or {}
         super().__init__(**kwargs)
@@ -64,6 +79,25 @@ class _Parser(_PBParser):
             return self._custom_deserializers[full_name](value)
         return super().ConvertMessage(value, message)
 
+
+# protobuf converts to/from b64 strings, but we prefer to stay as bytes.
+# we handle bytes parser by decorating to handle byte fields first
+def _handle_bytes(func):
+    @wraps(func)
+    def wrapper(value, field, require_str=False):
+        if (
+            field.cpp_type == FieldDescriptor.CPPTYPE_STRING
+            and field.type == FieldDescriptor.TYPE_BYTES
+        ):
+            return value
+        return func(value, field, require_str)
+
+    return wrapper
+
+
+json_format._ConvertScalarFieldValue = _handle_bytes(  # type: ignore[attr-defined]
+    json_format._ConvertScalarFieldValue  # type: ignore[attr-defined]
+)
 
 # endregion
 
@@ -199,6 +233,12 @@ class MessageConverter:
                     )
                 else:
                     spark_type = self.get_spark_schema(field.message_type)
+            # protobuf converts to/from b64 strings, but we prefer to stay as bytes
+            elif (
+                field.cpp_type == FieldDescriptor.CPPTYPE_STRING
+                and field.type == FieldDescriptor.TYPE_BYTES
+            ):
+                spark_type = ByteType()
             else:
                 spark_type = _CPPTYPE_TO_SPARK_TYPE_MAP[field.cpp_type]()
             if field.label == FieldDescriptor.LABEL_REPEATED:

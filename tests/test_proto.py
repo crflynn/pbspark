@@ -80,7 +80,7 @@ def test_get_spark_schema():
                 True,
             ),
             StructField("stringlist", ArrayType(StringType(), True), True),
-            StructField("bytes", StringType(), True),
+            StructField("bytes", ByteType(), True),
             StructField("sfixed32", IntegerType(), True),
             StructField("sfixed64", LongType(), True),
             StructField("sint32", IntegerType(), True),
@@ -127,7 +127,7 @@ def test_get_decoder(example):
         "string": "asdf",
         "nested": {"key": "hello", "value": "world"},
         "stringlist": ["one", "two", "three"],
-        "bytes": "c29tZXRoaW5n",  # b64encoded
+        "bytes": b"something",
         "timestamp": example.timestamp.ToDatetime(),
         "duration": example.duration.ToJsonString(),
         "decimal": Decimal(example.decimal.value),
