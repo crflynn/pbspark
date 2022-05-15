@@ -1,5 +1,6 @@
 import inspect
 import typing as t
+from contextlib import contextmanager
 from functools import wraps
 
 from google.protobuf import json_format
@@ -78,7 +79,8 @@ class _Parser(json_format._Parser):  # type: ignore
         full_name = message.DESCRIPTOR.full_name
         if full_name in self._custom_deserializers:
             return self._custom_deserializers[full_name](value)
-        return super().ConvertMessage(value, message, path)
+        with _patched_convert_scalar_field_value():
+            return super().ConvertMessage(value, message, path)
 
 
 # protobuf converts to/from b64 strings, but we prefer to stay as bytes.
@@ -96,9 +98,18 @@ def _handle_bytes(func):
     return wrapper
 
 
-json_format._ConvertScalarFieldValue = _handle_bytes(  # type: ignore[attr-defined]
-    json_format._ConvertScalarFieldValue  # type: ignore[attr-defined]
-)
+@contextmanager
+def _patched_convert_scalar_field_value():
+    """Temporarily patch the scalar field conversion function."""
+    convert_scalar_field_value_func = json_format._ConvertScalarFieldValue
+    json_format._ConvertScalarFieldValue = _handle_bytes(  # type: ignore[attr-defined]
+        json_format._ConvertScalarFieldValue  # type: ignore[attr-defined]
+    )
+    try:
+        yield
+    finally:
+        json_format._ConvertScalarFieldValue = convert_scalar_field_value_func
+
 
 # endregion
 

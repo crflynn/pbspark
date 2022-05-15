@@ -2,6 +2,7 @@ import datetime
 from decimal import Decimal
 
 import pytest
+from google.protobuf import json_format
 from google.protobuf.duration_pb2 import Duration
 from google.protobuf.timestamp_pb2 import Timestamp
 from pyspark import SparkContext
@@ -13,6 +14,7 @@ from example.example_pb2 import DecimalMessage
 from example.example_pb2 import ExampleMessage
 from example.example_pb2 import NestedMessage
 from pbspark._proto import MessageConverter
+from pbspark._proto import _patched_convert_scalar_field_value
 
 
 @pytest.fixture()
@@ -108,6 +110,13 @@ def test_get_spark_schema():
         ]
     )
     assert schema == expected_schema
+
+
+def test_patched_convert_scalar_field_value():
+    assert not hasattr(json_format._ConvertScalarFieldValue, "__wrapped__")
+    with _patched_convert_scalar_field_value():
+        assert hasattr(json_format._ConvertScalarFieldValue, "__wrapped__")
+    assert not hasattr(json_format._ConvertScalarFieldValue, "__wrapped__")
 
 
 def test_get_decoder(example):
