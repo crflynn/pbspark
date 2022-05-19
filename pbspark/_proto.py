@@ -10,6 +10,7 @@ from google.protobuf.descriptor_pool import DescriptorPool
 from google.protobuf.message import Message
 from google.protobuf.timestamp_pb2 import Timestamp
 from pyspark.sql import Column
+from pyspark.sql import Row
 from pyspark.sql.functions import col
 from pyspark.sql.functions import udf
 from pyspark.sql.types import *
