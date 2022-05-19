@@ -78,7 +78,7 @@ class _Parser(json_format._Parser):  # type: ignore
     def ConvertMessage(self, value, message, path):
         full_name = message.DESCRIPTOR.full_name
         if full_name in self._custom_deserializers:
-            return self._custom_deserializers[full_name](value)
+            return self._custom_deserializers[full_name](value, message, path)
         with _patched_convert_scalar_field_value():
             return super().ConvertMessage(value, message, path)
 
@@ -92,7 +92,7 @@ def _handle_bytes(func):
             field.cpp_type == FieldDescriptor.CPPTYPE_STRING
             and field.type == FieldDescriptor.TYPE_BYTES
         ):
-            return value
+            return bytes(value)  # convert from bytearray to bytes
         return func(value, field, require_str)
 
     return wrapper
@@ -101,7 +101,7 @@ def _handle_bytes(func):
 @contextmanager
 def _patched_convert_scalar_field_value():
     """Temporarily patch the scalar field conversion function."""
-    convert_scalar_field_value_func = json_format._ConvertScalarFieldValue
+    convert_scalar_field_value_func = json_format._ConvertScalarFieldValue  # type: ignore[attr-defined]
     json_format._ConvertScalarFieldValue = _handle_bytes(  # type: ignore[attr-defined]
         json_format._ConvertScalarFieldValue  # type: ignore[attr-defined]
     )
@@ -252,7 +252,7 @@ class MessageConverter:
                 field.cpp_type == FieldDescriptor.CPPTYPE_STRING
                 and field.type == FieldDescriptor.TYPE_BYTES
             ):
-                spark_type = ByteType()
+                spark_type = BinaryType()
             else:
                 spark_type = _CPPTYPE_TO_SPARK_TYPE_MAP[field.cpp_type]()
             if field.label == FieldDescriptor.LABEL_REPEATED:
@@ -321,6 +321,9 @@ class MessageConverter:
 
         def encoder(s: dict) -> bytes:
             message = message_type()
+            # udf may pass a Row object, but we want to pass a dict to the parser
+            if isinstance(s, Row):
+                s = s.asDict(recursive=True)
             self.parse_dict(s, message, **kwargs)
             return message.SerializeToString()
 

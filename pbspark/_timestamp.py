@@ -2,32 +2,22 @@
 import calendar
 import datetime
 
+from google.protobuf.internal import well_known_types
 from google.protobuf.timestamp_pb2 import Timestamp
-
-_EPOCH_DATETIME = datetime.datetime.utcfromtimestamp(0)
-_NANOS_PER_MICROSECOND = 1000
-
-
-def _round_toward_zero(value, divider):
-    result = value // divider
-    remainder = value % divider
-    if result < 0 < remainder:
-        return result + 1
-    else:
-        return result
 
 
 def _to_datetime(message: Timestamp) -> datetime.datetime:
     """Convert a Timestamp to a python datetime."""
-    return _EPOCH_DATETIME + datetime.timedelta(
+    return well_known_types._EPOCH_DATETIME_NAIVE + datetime.timedelta(  # type: ignore[attr-defined]
         seconds=message.seconds,
-        microseconds=_round_toward_zero(message.nanos, _NANOS_PER_MICROSECOND),
+        microseconds=well_known_types._RoundTowardZero(  # type: ignore[attr-defined]
+            message.nanos,
+            well_known_types._NANOS_PER_MICROSECOND,  # type: ignore[attr-defined]
+        ),
     )
 
 
-def _from_datetime(dt):
+def _from_datetime(dt: datetime.datetime, timestamp: Timestamp, path: str):
     """Convert a python datetime to Timestamp."""
-    return Timestamp(
-        seconds=calendar.timegm(dt.utctimetuple()),
-        nanos=dt.microsecond * _NANOS_PER_MICROSECOND,
-    )
+    timestamp.seconds = calendar.timegm(dt.utctimetuple())
+    timestamp.nanos = dt.microsecond * well_known_types._NANOS_PER_MICROSECOND  # type: ignore[attr-defined]

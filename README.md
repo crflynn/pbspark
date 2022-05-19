@@ -60,7 +60,31 @@ We can also re-encode them into protobuf strings.
 df_reencoded = df_decoded.select(mc.to_protobuf(df_decoded.value, SimpleMessage).alias("value"))
 ```
 
-`pbspark` uses protobuf's `MessageToDict`, which deserializes everything into JSON compatible objects by default. The exception is the bytes type, which `MessageToDict` would decode to a base64-encoded string; `pbspark` will decode any bytes fields directly to a spark `ByteType`.
+For flattened data, we can also re-encode after collecting:
+
+```python
+from pyspark.sql import Row
+
+data = [Row(value=row).asDict(recursive=True) for row in df_flattened.collect()]
+df_unflattened = spark.createDataFrame(
+    data=data,
+    schema=StructType(
+        [
+            StructField(
+                name="value",
+                dataType=mc.get_spark_schema(SimpleMessage),
+                nullable=True,
+            )
+        ]
+    ),
+)
+df_unflattened.show()
+df_reencoded = df_unflattened.select(
+    mc.to_protobuf(df_unflattened.value, SimpleMessage).alias("value")
+)
+```
+
+`pbspark` uses protobuf's `MessageToDict`, which deserializes everything into JSON compatible objects by default. The exception is the bytes type, which `MessageToDict` would decode to a base64-encoded string; `pbspark` will decode any bytes fields directly to a spark `BinaryType`.
 
 Conversion between `google.protobuf.Timestamp` and spark `TimestampType` can be enabled using:
 
@@ -89,9 +113,16 @@ mc.register_timestamp_serializer()
 # register a custom serializer
 # this will serialize the NestedMessages into a string rather than a
 # struct with `key` and `value` fields
-combine_key_value = lambda message: message.key + ":" + message.value
+def encode_nested(message: NestedMessage) -> str:
+    return message.key + ":" + message.value
 
-mc.register_serializer(NestedMessage, combine_key_value, StringType)
+def decode_nested(s: str, message: NestedMessage, path: str):
+    key, value = s.split(":")
+    message.key = key
+    message.value = value
+
+mc.register_serializer(NestedMessage, encode_nested, StringType)
+mc.register_deserializer(NestedMessage, decode_nested)
 
 ...
 

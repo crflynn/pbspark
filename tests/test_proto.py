@@ -7,6 +7,7 @@ from google.protobuf.duration_pb2 import Duration
 from google.protobuf.timestamp_pb2 import Timestamp
 from pyspark import SparkContext
 from pyspark.serializers import CloudPickleSerializer
+from pyspark.sql import Row
 from pyspark.sql.session import SparkSession
 from pyspark.sql.types import *
 
@@ -82,7 +83,7 @@ def test_get_spark_schema():
                 True,
             ),
             StructField("stringlist", ArrayType(StringType(), True), True),
-            StructField("bytes", ByteType(), True),
+            StructField("bytes", BinaryType(), True),
             StructField("sfixed32", IntegerType(), True),
             StructField("sfixed64", LongType(), True),
             StructField("sint32", IntegerType(), True),
@@ -153,7 +154,7 @@ def test_from_protobuf(example, spark):
 
     data = [{"value": example.SerializeToString()}]
 
-    df = spark.createDataFrame(data)
+    df = spark.createDataFrame(data)  # type: ignore[type-var]
     dfs = df.select(mc.from_protobuf(df.value, ExampleMessage).alias("value"))
     dfe = dfs.select("value.*")
     dfe.show()
@@ -171,12 +172,37 @@ def test_round_trip(example, spark):
 
     data = [{"value": example.SerializeToString()}]
 
-    df = spark.createDataFrame(data)
+    df = spark.createDataFrame(data)  # type: ignore[type-var]
     df.show()
 
     df.printSchema()
     dfs = df.select(mc.from_protobuf(df.value, ExampleMessage).alias("value"))
-    dfs.show()
-    dfr = dfs.select(mc.to_protobuf(dfs.value, ExampleMessage).alias("value"))
-    dfr.show()
-    dfr.printSchema()
+    df_again = dfs.select(mc.to_protobuf(dfs.value, ExampleMessage).alias("value"))
+    df_again.show()
+    assert df.schema == df_again.schema
+    assert df.collect() == df_again.collect()
+
+    # make a flattened df and then encode from unflattened df
+    df_flattened = dfs.select("value.*")
+
+    data = [Row(value=row).asDict(recursive=True) for row in df_flattened.collect()]
+    df_unflattened = spark.createDataFrame(  # type: ignore[type-var]
+        data=data,
+        schema=StructType(
+            [
+                StructField(
+                    name="value",
+                    dataType=mc.get_spark_schema(ExampleMessage),
+                    nullable=True,
+                )
+            ]
+        ),
+    )
+    df_unflattened.show()
+    assert dfs.schema == df_unflattened.schema
+    df_again = df_unflattened.select(
+        mc.to_protobuf(df_unflattened.value, ExampleMessage).alias("value")
+    )
+    df_again.show()
+    assert df.schema == df_again.schema
+    assert df.collect() == df_again.collect()
