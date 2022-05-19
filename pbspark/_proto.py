@@ -79,9 +79,10 @@ class _Parser(json_format._Parser):  # type: ignore
     def ConvertMessage(self, value, message, path):
         full_name = message.DESCRIPTOR.full_name
         if full_name in self._custom_deserializers:
-            return self._custom_deserializers[full_name](value, message, path)
+            self._custom_deserializers[full_name](value, message, path)
+            return
         with _patched_convert_scalar_field_value():
-            return super().ConvertMessage(value, message, path)
+            super().ConvertMessage(value, message, path)
 
 
 # protobuf converts to/from b64 strings, but we prefer to stay as bytes.

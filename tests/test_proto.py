@@ -200,6 +200,7 @@ def test_round_trip(example, spark):
     )
     df_unflattened.show()
     assert dfs.schema == df_unflattened.schema
+    assert dfs.collect() == df_unflattened.collect()
     df_again = df_unflattened.select(
         mc.to_protobuf(df_unflattened.value, ExampleMessage).alias("value")
     )
