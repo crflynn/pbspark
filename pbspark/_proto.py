@@ -124,6 +124,8 @@ class MessageConverter:
         self._message_type_to_spark_type_kwargs_map = (
             _MESSAGETYPE_TO_SPARK_TYPE_KWARGS_MAP.copy()
         )
+        self.register_timestamp_serializer()
+        self.register_timestamp_deserializer()
 
     def register_serializer(
         self,
