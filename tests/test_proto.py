@@ -51,8 +51,8 @@ def spark():
     return spark
 
 
-def decimal_serializer(message: DecimalMessage):
-    return Decimal(message.value)
+# this is a lambda because we are in a test module and we need to (cloud)pickle it
+decimal_serializer = lambda message: Decimal(message.value)  # noqa
 
 
 def test_get_spark_schema():
