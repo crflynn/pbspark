@@ -51,12 +51,12 @@ def spark():
     return spark
 
 
+# this is a lambda because we are in a test module and we need to (cloud)pickle it
 decimal_serializer = lambda message: Decimal(message.value)  # noqa
 
 
 def test_get_spark_schema():
     mc = MessageConverter()
-    mc.register_timestamp_serializer()
     mc.register_serializer(
         DecimalMessage, decimal_serializer, DecimalType, {"precision": 10, "scale": 2}
     )
@@ -122,7 +122,6 @@ def test_patched_convert_scalar_field_value():
 
 def test_get_decoder(example):
     mc = MessageConverter()
-    mc.register_timestamp_serializer()
     mc.register_serializer(
         DecimalMessage, decimal_serializer, DecimalType, {"precision": 10, "scale": 2}
     )
@@ -147,7 +146,6 @@ def test_get_decoder(example):
 
 def test_from_protobuf(example, spark):
     mc = MessageConverter()
-    mc.register_timestamp_serializer()
     mc.register_serializer(
         DecimalMessage, decimal_serializer, DecimalType, {"precision": 10, "scale": 2}
     )
@@ -167,7 +165,6 @@ def test_from_protobuf(example, spark):
 
 def test_round_trip(example, spark):
     mc = MessageConverter()
-    mc.register_timestamp_serializer()
     mc.register_timestamp_deserializer()
 
     data = [{"value": example.SerializeToString()}]

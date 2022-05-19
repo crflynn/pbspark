@@ -61,6 +61,7 @@ class _Printer(json_format._Printer):  # type: ignore
         return super()._MessageToJsonObject(message)
 
     def _FieldToJsonObject(self, field, value):
+        # specially handle bytes before protobuf's method does
         if (
             field.cpp_type == FieldDescriptor.CPPTYPE_STRING
             and field.type == FieldDescriptor.TYPE_BYTES
@@ -124,6 +125,8 @@ class MessageConverter:
         self._message_type_to_spark_type_kwargs_map = (
             _MESSAGETYPE_TO_SPARK_TYPE_KWARGS_MAP.copy()
         )
+        self.register_timestamp_serializer()
+        self.register_timestamp_deserializer()
 
     def register_serializer(
         self,

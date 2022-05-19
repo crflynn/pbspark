@@ -84,17 +84,9 @@ df_reencoded = df_unflattened.select(
 )
 ```
 
-`pbspark` uses protobuf's `MessageToDict`, which deserializes everything into JSON compatible objects by default. The exception is the bytes type, which `MessageToDict` would decode to a base64-encoded string; `pbspark` will decode any bytes fields directly to a spark `BinaryType`.
-
-Conversion between `google.protobuf.Timestamp` and spark `TimestampType` can be enabled using:
-
-```python
-from pbspark import MessageConverter
-
-mc = MessageConverter()
-mc.register_timestamp_serializer()
-mc.register_timestamp_deserializer()
-```
+`pbspark` uses protobuf's `MessageToDict`, which deserializes everything into JSON compatible objects by default. The exceptions are
+* protobuf's bytes type, which `MessageToDict` would decode to a base64-encoded string; `pbspark` will decode any bytes fields directly to a spark `BinaryType`.
+* protobuf's well known type, Timestamp type, which `MessageToDict` would decode to a string; `pbspark` will decode any Timestamp messages directly to a spark `TimestampType`.
 
 Custom serde is also supported. Suppose we have a message in which we want to combine fields when we serialize.
 
@@ -107,8 +99,6 @@ from example.example_pb2 import NestedMessage
 from pyspark.sql.types import StringType
 
 mc = MessageConverter()
-# built-in to serialize Timestamp messages to datetime objects
-mc.register_timestamp_serializer()
 
 # register a custom serializer
 # this will serialize the NestedMessages into a string rather than a
