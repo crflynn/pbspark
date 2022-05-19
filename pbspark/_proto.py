@@ -61,6 +61,7 @@ class _Printer(json_format._Printer):  # type: ignore
         return super()._MessageToJsonObject(message)
 
     def _FieldToJsonObject(self, field, value):
+        # specially handle bytes before protobuf's method does
         if (
             field.cpp_type == FieldDescriptor.CPPTYPE_STRING
             and field.type == FieldDescriptor.TYPE_BYTES
