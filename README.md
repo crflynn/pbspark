@@ -60,7 +60,7 @@ We can also re-encode them into protobuf strings.
 df_reencoded = df_decoded.select(mc.to_protobuf(df_decoded.value, SimpleMessage).alias("value"))
 ```
 
-For flattened data, we can also re-encode after collecting:
+For flattened data, we can also (re-)encode after collecting and packing into a struct:
 
 ```python
 from pyspark.sql import Row
@@ -84,13 +84,20 @@ df_reencoded = df_unflattened.select(
 )
 ```
 
-`pbspark` uses protobuf's `MessageToDict`, which deserializes everything into JSON compatible objects by default. The exceptions are
+Internally, `pbspark` uses protobuf's `MessageToDict`, which deserializes everything into JSON compatible objects by default. The exceptions are
 * protobuf's bytes type, which `MessageToDict` would decode to a base64-encoded string; `pbspark` will decode any bytes fields directly to a spark `BinaryType`.
-* protobuf's well known type, Timestamp type, which `MessageToDict` would decode to a string; `pbspark` will decode any Timestamp messages directly to a spark `TimestampType`.
+* protobuf's well known type, Timestamp type, which `MessageToDict` would decode to a string; `pbspark` will decode any Timestamp messages directly to a spark `TimestampType` (via python datetime objects).
 
-Custom serde is also supported. Suppose we have a message in which we want to combine fields when we serialize.
+Custom serde is also supported. Suppose we use our `NestedMessage` from the repository's example and we want to serialize the key and value together into a single string.
 
-Create and register a custom serializer with the `MessageConverter`.
+```protobuf
+message NestedMessage {
+  string key = 1;
+  string value = 2;
+}
+```
+
+We can create and register a custom serializer with the `MessageConverter`.
 
 ```python
 from pbspark import MessageConverter
@@ -103,18 +110,11 @@ mc = MessageConverter()
 # register a custom serializer
 # this will serialize the NestedMessages into a string rather than a
 # struct with `key` and `value` fields
-def encode_nested(message: NestedMessage) -> str:
-    return message.key + ":" + message.value
-
-def decode_nested(s: str, message: NestedMessage, path: str):
-    key, value = s.split(":")
-    message.key = key
-    message.value = value
+encode_nested = lambda message:  message.key + ":" + message.value
 
 mc.register_serializer(NestedMessage, encode_nested, StringType)
-mc.register_deserializer(NestedMessage, decode_nested)
 
-...
+# ...
 
 from pyspark.sql.session import SparkSession
 from pyspark import SparkContext
@@ -136,5 +136,23 @@ df_decoded.select("value.nested").show()
 # +-----------+
 # |hello:world|
 # +-----------+
+```
 
+More generally, custom serde functions should be written in the following format.
+
+```python
+# Encoding takes a message instance and returns the result
+# of the custom transformation.
+def encode_nested(message: NestedMessage) -> str:
+    return message.key + ":" + message.value
+
+# Decoding takes the encoded value, a message instance, and path string
+# and populates the fields of the message instance. It returns `None`.
+# The path str is used in the protobuf parser to log parse error info.
+# Note that the first argument type should match the return type of the
+# encoder if using both.
+def decode_nested(s: str, message: NestedMessage, path: str):
+    key, value = s.split(":")
+    message.key = key
+    message.value = value
 ```
