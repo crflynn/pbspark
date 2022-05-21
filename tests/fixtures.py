@@ -11,8 +11,8 @@ from example.example_pb2 import DecimalMessage
 from example.example_pb2 import RecursiveMessage
 
 
-def encode_recursive(message: RecursiveMessage, depth=0, max_depth=2):
-    if depth == max_depth:
+def encode_recursive(message: RecursiveMessage, depth=0):
+    if depth == 2:
         return json.dumps(MessageToDict(message))
     return {
         "note": message.note,
