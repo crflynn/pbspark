@@ -1,5 +1,10 @@
 # Changelog
 
+## 2022-05-20 - 0.5.0
+
+* Breaking: return type instances to be passed to custom serializers rather than type class + init kwargs
+* Bugfix: `get_spark_schema` now returns properly when the descriptor passed has a registered custom serializer
+
 ## 2022-05-19 - 0.4.0
 
 * Breaking: pbspark now encodes the well known type `Timestamp` to spark `TimestampType` by default.
