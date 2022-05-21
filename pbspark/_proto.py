@@ -10,10 +10,21 @@ from google.protobuf.descriptor_pool import DescriptorPool
 from google.protobuf.message import Message
 from google.protobuf.timestamp_pb2 import Timestamp
 from pyspark.sql import Column
-from pyspark.sql import Row
 from pyspark.sql.functions import col
 from pyspark.sql.functions import udf
-from pyspark.sql.types import *
+from pyspark.sql.types import ArrayType
+from pyspark.sql.types import BinaryType
+from pyspark.sql.types import BooleanType
+from pyspark.sql.types import DataType
+from pyspark.sql.types import DoubleType
+from pyspark.sql.types import FloatType
+from pyspark.sql.types import IntegerType
+from pyspark.sql.types import LongType
+from pyspark.sql.types import Row
+from pyspark.sql.types import StringType
+from pyspark.sql.types import StructField
+from pyspark.sql.types import StructType
+from pyspark.sql.types import TimestampType
 
 from pbspark._timestamp import _from_datetime
 from pbspark._timestamp import _to_datetime
@@ -22,27 +33,26 @@ from pbspark._timestamp import _to_datetime
 # for serialization via MessageToDict. Because the
 # MessageToDict function is an intermediate step to
 # JSON, these types are serialized to strings.
-_MESSAGETYPE_TO_SPARK_TYPE_MAP: t.Dict[str, t.Type[DataType]] = {
-    "google.protobuf.Timestamp": StringType,
-    "google.protobuf.Duration": StringType,
+_MESSAGETYPE_TO_SPARK_TYPE_MAP: t.Dict[str, DataType] = {
+    "google.protobuf.Timestamp": StringType(),
+    "google.protobuf.Duration": StringType(),
 }
-_MESSAGETYPE_TO_SPARK_TYPE_KWARGS_MAP: t.Dict[str, t.Dict[str, t.Any]] = {}
 
 # Protobuf types map to these CPP Types. We map
 # them to Spark types for generating a spark schema.
 # Note that bytes fields are specified by the `type` attribute in addition to
 # the `cpp_type` attribute so there is special handling in the `get_spark_schema`
 # method.
-_CPPTYPE_TO_SPARK_TYPE_MAP: t.Dict[int, t.Type[DataType]] = {
-    FieldDescriptor.CPPTYPE_INT32: IntegerType,
-    FieldDescriptor.CPPTYPE_INT64: LongType,
-    FieldDescriptor.CPPTYPE_UINT32: LongType,
-    FieldDescriptor.CPPTYPE_UINT64: LongType,
-    FieldDescriptor.CPPTYPE_DOUBLE: DoubleType,
-    FieldDescriptor.CPPTYPE_FLOAT: FloatType,
-    FieldDescriptor.CPPTYPE_BOOL: BooleanType,
-    FieldDescriptor.CPPTYPE_ENUM: StringType,
-    FieldDescriptor.CPPTYPE_STRING: StringType,
+_CPPTYPE_TO_SPARK_TYPE_MAP: t.Dict[int, DataType] = {
+    FieldDescriptor.CPPTYPE_INT32: IntegerType(),
+    FieldDescriptor.CPPTYPE_INT64: LongType(),
+    FieldDescriptor.CPPTYPE_UINT32: LongType(),
+    FieldDescriptor.CPPTYPE_UINT64: LongType(),
+    FieldDescriptor.CPPTYPE_DOUBLE: DoubleType(),
+    FieldDescriptor.CPPTYPE_FLOAT: FloatType(),
+    FieldDescriptor.CPPTYPE_BOOL: BooleanType(),
+    FieldDescriptor.CPPTYPE_ENUM: StringType(),
+    FieldDescriptor.CPPTYPE_STRING: StringType(),
 }
 
 
@@ -122,9 +132,6 @@ class MessageConverter:
         self._custom_serializers: t.Dict[str, t.Callable] = {}
         self._custom_deserializers: t.Dict[str, t.Callable] = {}
         self._message_type_to_spark_type_map = _MESSAGETYPE_TO_SPARK_TYPE_MAP.copy()
-        self._message_type_to_spark_type_kwargs_map = (
-            _MESSAGETYPE_TO_SPARK_TYPE_KWARGS_MAP.copy()
-        )
         self.register_timestamp_serializer()
         self.register_timestamp_deserializer()
 
@@ -132,8 +139,7 @@ class MessageConverter:
         self,
         message: t.Type[Message],
         serializer: t.Callable,
-        return_type: t.Type[DataType],
-        return_type_kwargs: t.Dict[str, t.Any] = None,
+        return_type: DataType,
     ):
         """Map a message type to a custom serializer and spark output type.
 
@@ -143,22 +149,15 @@ class MessageConverter:
         full_name = message.DESCRIPTOR.full_name
         self._custom_serializers[full_name] = serializer
         self._message_type_to_spark_type_map[full_name] = return_type
-        if return_type_kwargs is not None:
-            self._message_type_to_spark_type_kwargs_map[full_name] = return_type_kwargs
 
     def unregister_serializer(self, message: t.Type[Message]):
         full_name = message.DESCRIPTOR.full_name
         self._custom_serializers.pop(full_name, None)
         self._message_type_to_spark_type_map.pop(full_name, None)
-        self._message_type_to_spark_type_kwargs_map.pop(full_name, None)
         if full_name in _MESSAGETYPE_TO_SPARK_TYPE_MAP:
             self._message_type_to_spark_type_map[
                 full_name
             ] = _MESSAGETYPE_TO_SPARK_TYPE_MAP[full_name]
-        if full_name in _MESSAGETYPE_TO_SPARK_TYPE_KWARGS_MAP:
-            self._message_type_to_spark_type_kwargs_map[
-                full_name
-            ] = _MESSAGETYPE_TO_SPARK_TYPE_KWARGS_MAP[full_name]
 
     def register_deserializer(self, message: t.Type[Message], deserializer: t.Callable):
         full_name = message.DESCRIPTOR.full_name
@@ -170,7 +169,7 @@ class MessageConverter:
 
     # region timestamp
     def register_timestamp_serializer(self):
-        self.register_serializer(Timestamp, _to_datetime, TimestampType)
+        self.register_serializer(Timestamp, _to_datetime, TimestampType())
 
     def unregister_timestamp_serializer(self):
         self.unregister_serializer(Timestamp)
@@ -224,7 +223,7 @@ class MessageConverter:
         self,
         descriptor: t.Union[t.Type[Message], Descriptor],
         options: t.Optional[dict] = None,
-    ) -> StructType:
+    ) -> DataType:
         """Generate a spark schema from a message type or descriptor
 
         Given a message type generated from protoc (or its descriptor),
@@ -238,18 +237,15 @@ class MessageConverter:
             descriptor_ = descriptor.DESCRIPTOR
         else:
             descriptor_ = descriptor  # type: ignore[assignment]
+        full_name = descriptor_.full_name
+        if full_name in self._message_type_to_spark_type_map:
+            return self._message_type_to_spark_type_map[full_name]
         for field in descriptor_.fields:
             spark_type: DataType
             if field.cpp_type == FieldDescriptor.CPPTYPE_MESSAGE:
                 full_name = field.message_type.full_name
                 if full_name in self._message_type_to_spark_type_map:
-                    kwargs = self._message_type_to_spark_type_kwargs_map.get(
-                        full_name, {}
-                    )
-                    # noinspection PyArgumentList
-                    spark_type = self._message_type_to_spark_type_map[full_name](
-                        **kwargs
-                    )
+                    spark_type = self._message_type_to_spark_type_map[full_name]
                 else:
                     spark_type = self.get_spark_schema(field.message_type)
             # protobuf converts to/from b64 strings, but we prefer to stay as bytes
@@ -259,7 +255,7 @@ class MessageConverter:
             ):
                 spark_type = BinaryType()
             else:
-                spark_type = _CPPTYPE_TO_SPARK_TYPE_MAP[field.cpp_type]()
+                spark_type = _CPPTYPE_TO_SPARK_TYPE_MAP[field.cpp_type]
             if field.label == FieldDescriptor.LABEL_REPEATED:
                 spark_type = ArrayType(spark_type, True)
             field_name = field.camelcase_name if use_camelcase else field.name

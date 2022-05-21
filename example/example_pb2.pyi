@@ -274,3 +274,26 @@ class ExampleMessage(google.protobuf.message.Message):
     ) -> typing.Optional[typing_extensions.Literal["oneofstring", "oneofint32"]]: ...
 
 global___ExampleMessage = ExampleMessage
+
+class RecursiveMessage(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+    NOTE_FIELD_NUMBER: builtins.int
+    MESSAGE_FIELD_NUMBER: builtins.int
+    note: typing.Text
+    @property
+    def message(self) -> global___RecursiveMessage: ...
+    def __init__(
+        self,
+        *,
+        note: typing.Text = ...,
+        message: typing.Optional[global___RecursiveMessage] = ...,
+    ) -> None: ...
+    def HasField(
+        self, field_name: typing_extensions.Literal["message", b"message"]
+    ) -> builtins.bool: ...
+    def ClearField(
+        self,
+        field_name: typing_extensions.Literal["message", b"message", "note", b"note"],
+    ) -> None: ...
+
+global___RecursiveMessage = RecursiveMessage
