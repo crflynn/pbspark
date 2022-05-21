@@ -1,21 +1,37 @@
 import datetime
+import json
 from decimal import Decimal
 
 import pytest
 from google.protobuf import json_format
 from google.protobuf.duration_pb2 import Duration
+from google.protobuf.json_format import MessageToDict
 from google.protobuf.timestamp_pb2 import Timestamp
 from pyspark import SparkContext
 from pyspark.serializers import CloudPickleSerializer
-from pyspark.sql import Row
 from pyspark.sql.session import SparkSession
-from pyspark.sql.types import *
+from pyspark.sql.types import ArrayType
+from pyspark.sql.types import BinaryType
+from pyspark.sql.types import BooleanType
+from pyspark.sql.types import DecimalType
+from pyspark.sql.types import DoubleType
+from pyspark.sql.types import FloatType
+from pyspark.sql.types import IntegerType
+from pyspark.sql.types import LongType
+from pyspark.sql.types import Row
+from pyspark.sql.types import StringType
+from pyspark.sql.types import StructField
+from pyspark.sql.types import StructType
+from pyspark.sql.types import TimestampType
 
 from example.example_pb2 import DecimalMessage
 from example.example_pb2 import ExampleMessage
 from example.example_pb2 import NestedMessage
+from example.example_pb2 import RecursiveMessage
 from pbspark._proto import MessageConverter
 from pbspark._proto import _patched_convert_scalar_field_value
+from tests.fixtures import decimal_serializer  # type: ignore[import]
+from tests.fixtures import encode_recursive
 
 
 @pytest.fixture()
@@ -51,14 +67,10 @@ def spark():
     return spark
 
 
-# this is a lambda because we are in a test module and we need to (cloud)pickle it
-decimal_serializer = lambda message: Decimal(message.value)  # noqa
-
-
 def test_get_spark_schema():
     mc = MessageConverter()
     mc.register_serializer(
-        DecimalMessage, decimal_serializer, DecimalType, {"precision": 10, "scale": 2}
+        DecimalMessage, decimal_serializer, DecimalType(precision=10, scale=2)
     )
     schema = mc.get_spark_schema(ExampleMessage)
     expected_schema = StructType(
@@ -123,7 +135,7 @@ def test_patched_convert_scalar_field_value():
 def test_get_decoder(example):
     mc = MessageConverter()
     mc.register_serializer(
-        DecimalMessage, decimal_serializer, DecimalType, {"precision": 10, "scale": 2}
+        DecimalMessage, decimal_serializer, DecimalType(precision=10, scale=2)
     )
     decoder = mc.get_decoder(ExampleMessage)
     s = example.SerializeToString()
@@ -147,7 +159,7 @@ def test_get_decoder(example):
 def test_from_protobuf(example, spark):
     mc = MessageConverter()
     mc.register_serializer(
-        DecimalMessage, decimal_serializer, DecimalType, {"precision": 10, "scale": 2}
+        DecimalMessage, decimal_serializer, DecimalType(precision=10, scale=2)
     )
 
     data = [{"value": example.SerializeToString()}]
@@ -204,3 +216,46 @@ def test_round_trip(example, spark):
     df_again.show()
     assert df.schema == df_again.schema
     assert df.collect() == df_again.collect()
+
+
+def test_recursive_message(spark):
+    message = RecursiveMessage(
+        note="one",
+        message=RecursiveMessage(note="two", message=RecursiveMessage(note="three")),
+    )
+
+    return_type = StructType(
+        [
+            StructField("note", StringType(), True),
+            StructField(
+                "message",
+                StructType(
+                    [
+                        StructField("note", StringType(), True),
+                        StructField("message", StringType(), True),
+                    ]
+                ),
+                True,
+            ),
+        ]
+    )
+    expected = {
+        "note": "one",
+        "message": {
+            "note": "two",
+            "message": json.dumps(MessageToDict(message.message.message)),
+        },
+    }
+    assert encode_recursive(message) == expected
+    mc = MessageConverter()
+    mc.register_serializer(RecursiveMessage, encode_recursive, return_type)
+
+    data = [{"value": message.SerializeToString()}]
+
+    df = spark.createDataFrame(data)  # type: ignore[type-var]
+    df.show()
+
+    dfs = df.select(mc.from_protobuf(df.value, RecursiveMessage).alias("value"))
+    dfs.show(truncate=False)
+    data = dfs.collect()
+    assert data[0].asDict(True)["value"] == expected

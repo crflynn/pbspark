@@ -53,3 +53,8 @@ message ExampleMessage {
   google.protobuf.Duration duration = 23;
   DecimalMessage decimal = 24;
 }
+
+message RecursiveMessage {
+  string note = 1;
+  RecursiveMessage message = 2;
+}
