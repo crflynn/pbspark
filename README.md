@@ -63,21 +63,11 @@ df_reencoded = df_decoded.select(mc.to_protobuf(df_decoded.value, SimpleMessage)
 For flattened data, we can also (re-)encode after collecting and packing into a struct:
 
 ```python
-from pyspark.sql import Row
+from pyspark.sql.functions import struct
 
-data = [Row(value=row).asDict(recursive=True) for row in df_flattened.collect()]
-df_unflattened = spark.createDataFrame(
-    data=data,
-    schema=StructType(
-        [
-            StructField(
-                name="value",
-                dataType=mc.get_spark_schema(SimpleMessage),
-                nullable=True,
-            )
-        ]
-    ),
-)
+df_unflattened = df_flattened.withColumn(
+    "value", struct([df_flattened[c] for c in df_flattened.columns])
+).select("value")
 df_unflattened.show()
 df_reencoded = df_unflattened.select(
     mc.to_protobuf(df_unflattened.value, SimpleMessage).alias("value")
@@ -112,7 +102,7 @@ mc = MessageConverter()
 # struct with `key` and `value` fields
 encode_nested = lambda message:  message.key + ":" + message.value
 
-mc.register_serializer(NestedMessage, encode_nested, StringType)
+mc.register_serializer(NestedMessage, encode_nested, StringType())
 
 # ...
 
