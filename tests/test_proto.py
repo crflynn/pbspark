@@ -9,6 +9,7 @@ from google.protobuf.json_format import MessageToDict
 from google.protobuf.timestamp_pb2 import Timestamp
 from pyspark import SparkContext
 from pyspark.serializers import CloudPickleSerializer
+from pyspark.sql.functions import struct
 from pyspark.sql.session import SparkSession
 from pyspark.sql.types import ArrayType
 from pyspark.sql.types import BinaryType
@@ -18,7 +19,6 @@ from pyspark.sql.types import DoubleType
 from pyspark.sql.types import FloatType
 from pyspark.sql.types import IntegerType
 from pyspark.sql.types import LongType
-from pyspark.sql.types import Row
 from pyspark.sql.types import StringType
 from pyspark.sql.types import StructField
 from pyspark.sql.types import StructType
@@ -194,21 +194,14 @@ def test_round_trip(example, spark):
     # make a flattened df and then encode from unflattened df
     df_flattened = dfs.select("value.*")
 
-    data = [Row(value=row).asDict(recursive=True) for row in df_flattened.collect()]
-    df_unflattened = spark.createDataFrame(  # type: ignore[type-var]
-        data=data,
-        schema=StructType(
-            [
-                StructField(
-                    name="value",
-                    dataType=mc.get_spark_schema(ExampleMessage),
-                    nullable=True,
-                )
-            ]
-        ),
-    )
+    df_unflattened = df_flattened.withColumn(
+        "value", struct([df_flattened[c] for c in df_flattened.columns])
+    ).select("value")
     df_unflattened.show()
-    assert dfs.schema == df_unflattened.schema
+    schema = df_unflattened.schema
+    # this will be false because there are no null records
+    schema.fields[0].nullable = True
+    assert dfs.schema == schema
     assert dfs.collect() == df_unflattened.collect()
     df_again = df_unflattened.select(
         mc.to_protobuf(df_unflattened.value, ExampleMessage).alias("value")
