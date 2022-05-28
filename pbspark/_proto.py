@@ -402,6 +402,7 @@ def df_to_protobuf(
         )
     else:
         df_struct = df.select(col(df.columns[0]).alias("value"))
-    return df_struct.select(
+    df_encoded = df_struct.select(
         mc.to_protobuf(df_struct.value, message_type, options).alias("value")
     )
+    return df_encoded
