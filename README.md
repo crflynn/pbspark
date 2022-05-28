@@ -26,7 +26,7 @@ message SimpleMessage {
 }
 ```
 
-Using `pbspark` we can decode the messages into spark `StructType` and then flatten them.
+Using `pbspark` we can decode the messages into spark `StructType` and then expand them.
 
 ```python
 from pyspark.sql.session import SparkSession
