@@ -77,7 +77,7 @@ Internally, `pbspark` uses protobuf's `MessageToDict`, which deserializes everyt
 * protobuf's bytes type, which `MessageToDict` would decode to a base64-encoded string; `pbspark` will decode any bytes fields directly to a spark `BinaryType`.
 * protobuf's well known type, Timestamp type, which `MessageToDict` would decode to a string; `pbspark` will decode any Timestamp messages directly to a spark `TimestampType` (via python datetime objects).
 
-There are two helper functions, `df_to_protobuf` and `df_from_protobuf` which can be used if no custom conversion is necessary. They have a custom kwarg `expanded`, which will also take care of expanding/contracting the data between the single `value` column used in these examples and a dataframe which contains a column for each message field. `MessageConverter` instances can optionally be passed to these functions.
+There are two helper functions, `df_to_protobuf` and `df_from_protobuf` which can be used if no custom conversion is necessary. They have a kwarg `expanded`, which will also take care of expanding/contracting the data between the single `value` column used in these examples and a dataframe which contains a column for each message field. `MessageConverter` instances can optionally be passed to these functions.
 
 ```python
 example = SimpleMessage(name="hello", quantity=5, measure=12.3)
