@@ -177,7 +177,6 @@ def test_from_protobuf(example, spark):
 
 def test_round_trip(example, spark):
     mc = MessageConverter()
-    mc.register_timestamp_deserializer()
 
     data = [{"value": example.SerializeToString()}]
 
@@ -194,9 +193,9 @@ def test_round_trip(example, spark):
     # make a flattened df and then encode from unflattened df
     df_flattened = dfs.select("value.*")
 
-    df_unflattened = df_flattened.withColumn(
-        "value", struct([df_flattened[c] for c in df_flattened.columns])
-    ).select("value")
+    df_unflattened = df_flattened.select(
+        struct([df_flattened[c] for c in df_flattened.columns]).alias("value")
+    )
     df_unflattened.show()
     schema = df_unflattened.schema
     # this will be false because there are no null records
