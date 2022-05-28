@@ -87,8 +87,10 @@ df_encoded = spark.createDataFrame(data)
 from pbspark import df_from_protobuf
 from pbspark import df_to_protobuf
 
+# expanded=True will perform a `.select("value.*")` after converting
 df_expanded = df_from_protobuf(df_encoded, SimpleMessage, expanded=True)
 
+# expanded=True will first pack data using `struct(df[c] for c in df.columns)`
 df_reencoded = df_to_protobuf(df_expanded, SimpleMessage, expanded=True)
 ```
 
