@@ -37,12 +37,12 @@ spark = SparkSession.builder.getOrCreate()
 
 example = SimpleMessage(name="hello", quantity=5, measure=12.3)
 data = [{"value": example.SerializeToString()}]
-df = spark.createDataFrame(data)
+df_encoded = spark.createDataFrame(data)
 
 mc = MessageConverter()
-df_decoded = df.select(mc.from_protobuf(df.value, SimpleMessage).alias("value"))
-df_flattened = df_decoded.select("value.*")
-df_flattened.show()
+df_decoded = df_encoded.select(mc.from_protobuf(df_encoded.value, SimpleMessage).alias("value"))
+df_expanded = df_decoded.select("value.*")
+df_expanded.show()
 
 # +-----+--------+-------+
 # | name|quantity|measure|
@@ -50,7 +50,7 @@ df_flattened.show()
 # |hello|       5|   12.3|
 # +-----+--------+-------+
 
-df_flattened.schema
+df_expanded.schema
 # StructType(List(StructField(name,StringType,true),StructField(quantity,IntegerType,true),StructField(measure,FloatType,true))
 ```
 
@@ -60,23 +60,37 @@ We can also re-encode them into protobuf strings.
 df_reencoded = df_decoded.select(mc.to_protobuf(df_decoded.value, SimpleMessage).alias("value"))
 ```
 
-For flattened data, we can also (re-)encode after collecting and packing into a struct:
+For expanded data, we can also (re-)encode after collecting and packing into a struct:
 
 ```python
 from pyspark.sql.functions import struct
 
-df_unflattened = df_flattened.select(
-    struct([df_flattened[c] for c in df_flattened.columns]).alias("value")
+df_unexpanded = df_expanded.select(
+    struct([df_expanded[c] for c in df_expanded.columns]).alias("value")
 )
-df_unflattened.show()
-df_reencoded = df_unflattened.select(
-    mc.to_protobuf(df_unflattened.value, SimpleMessage).alias("value")
+df_reencoded = df_unexpanded.select(
+    mc.to_protobuf(df_unexpanded.value, SimpleMessage).alias("value")
 )
 ```
 
 Internally, `pbspark` uses protobuf's `MessageToDict`, which deserializes everything into JSON compatible objects by default. The exceptions are
 * protobuf's bytes type, which `MessageToDict` would decode to a base64-encoded string; `pbspark` will decode any bytes fields directly to a spark `BinaryType`.
 * protobuf's well known type, Timestamp type, which `MessageToDict` would decode to a string; `pbspark` will decode any Timestamp messages directly to a spark `TimestampType` (via python datetime objects).
+
+There are two helper functions, `df_to_protobuf` and `df_from_protobuf` which can be used if no custom conversion is necessary. They have a custom kwarg `expanded`, which will also take care of expanding/contracting the data between the single `value` column used in these examples and a dataframe which contains a column for each message field. `MessageConverter` instances can optionally be passed to these functions.
+
+```python
+example = SimpleMessage(name="hello", quantity=5, measure=12.3)
+data = [{"value": example.SerializeToString()}]
+df_encoded = spark.createDataFrame(data)
+
+from pbspark import df_from_protobuf
+from pbspark import df_to_protobuf
+
+df_expanded = df_from_protobuf(df_encoded, SimpleMessage, expanded=True)
+
+df_reencoded = df_to_protobuf(df_expanded, SimpleMessage, expanded=True)
+```
 
 Custom serde is also supported. Suppose we use our `NestedMessage` from the repository's example and we want to serialize the key and value together into a single string.
 
@@ -115,9 +129,9 @@ spark = SparkSession(sc).builder.getOrCreate()
 
 message = ExampleMessage(nested=NestedMessage(key="hello", value="world"))
 data = [{"value": message.SerializeToString()}]
-df = spark.createDataFrame(data)
+df_encoded = spark.createDataFrame(data)
 
-df_decoded = df.select(mc.from_protobuf(df.value, ExampleMessage).alias("value"))
+df_decoded = df_encoded.select(mc.from_protobuf(df_encoded.value, ExampleMessage).alias("value"))
 # rather than a struct the value of `nested` is a string
 df_decoded.select("value.nested").show()
 
