@@ -28,7 +28,7 @@ message SimpleMessage {
 
 ### Basic conversion functions
 
-There are two helper functions, `df_to_protobuf` and `df_from_protobuf` which can be used if no custom conversion is necessary. They have a kwarg `expanded`, which will also take care of expanding/contracting the data between the single `value` column used in these examples and a dataframe which contains a column for each message field. `MessageConverter` instances (discussed below) can optionally be passed to these functions.
+There are two helper functions, `df_to_protobuf` and `df_from_protobuf` for use on dataframes. They have a kwarg `expanded`, which will also take care of expanding/contracting the data between the single `value` column used in these examples and a dataframe which contains a column for each message field. `MessageConverter` instances (discussed below) can optionally be passed to these functions.
 
 ```python
 from pyspark.sql.session import SparkSession
@@ -60,7 +60,7 @@ df_reencoded = df_to_protobuf(df_expanded, SimpleMessage, expanded=True)
 
 ### Column conversion using the `MessageConverter`
 
-Using an instance of `MessageConverter` we can decode the messages into spark `StructType` and then expand them.
+Using an instance of `MessageConverter` we can decode the column of encoded messages into a column of spark `StructType` and then expand the fields.
 
 ```python
 from pyspark.sql.session import SparkSession
@@ -88,13 +88,13 @@ df_expanded.schema
 # StructType(List(StructField(name,StringType,true),StructField(quantity,IntegerType,true),StructField(measure,FloatType,true))
 ```
 
-We can also re-encode them into protobuf strings.
+We can also re-encode them into protobuf.
 
 ```python
 df_reencoded = df_decoded.select(mc.to_protobuf(df_decoded.value, SimpleMessage).alias("value"))
 ```
 
-For expanded data, we can also (re-)encode after packing into a struct:
+For expanded data, we can also encode after packing into a struct column:
 
 ```python
 from pyspark.sql.functions import struct
