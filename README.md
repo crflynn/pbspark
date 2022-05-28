@@ -1,6 +1,6 @@
 # pbspark
 
-This package provides a way to convert protobuf messages into pyspark dataframes and vice versa using a pyspark udf.
+This package provides a way to convert protobuf messages into pyspark dataframes and vice versa using pyspark `udf`s.
 
 ## Installation
 
@@ -26,7 +26,41 @@ message SimpleMessage {
 }
 ```
 
-Using `pbspark` we can decode the messages into spark `StructType` and then expand them.
+### Basic conversion functions
+
+There are two helper functions, `df_to_protobuf` and `df_from_protobuf` which can be used if no custom conversion is necessary. They have a kwarg `expanded`, which will also take care of expanding/contracting the data between the single `value` column used in these examples and a dataframe which contains a column for each message field. `MessageConverter` instances (discussed below) can optionally be passed to these functions.
+
+```python
+from pyspark.sql.session import SparkSession
+from example.example_pb2 import SimpleMessage
+from pbspark import df_from_protobuf
+from pbspark import df_to_protobuf
+
+spark = SparkSession.builder.getOrCreate()
+
+example = SimpleMessage(name="hello", quantity=5, measure=12.3)
+data = [{"value": example.SerializeToString()}]
+df_encoded = spark.createDataFrame(data)
+
+# expanded=True will perform a `.select("value.*")` after converting,
+# resulting in each protobuf field having its own column
+df_expanded = df_from_protobuf(df_encoded, SimpleMessage, expanded=True)
+df_expanded.show()
+
+# +-----+--------+-------+
+# | name|quantity|measure|
+# +-----+--------+-------+
+# |hello|       5|   12.3|
+# +-----+--------+-------+
+
+# expanded=True will first pack data using `struct(df[c] for c in df.columns)`,
+# use this if the passed dataframe is already expanded
+df_reencoded = df_to_protobuf(df_expanded, SimpleMessage, expanded=True)
+```
+
+### Column conversion using the `MessageConverter`
+
+Using an instance of `MessageConverter` we can decode the messages into spark `StructType` and then expand them.
 
 ```python
 from pyspark.sql.session import SparkSession
@@ -60,7 +94,7 @@ We can also re-encode them into protobuf strings.
 df_reencoded = df_decoded.select(mc.to_protobuf(df_decoded.value, SimpleMessage).alias("value"))
 ```
 
-For expanded data, we can also (re-)encode after collecting and packing into a struct:
+For expanded data, we can also (re-)encode after packing into a struct:
 
 ```python
 from pyspark.sql.functions import struct
@@ -73,26 +107,13 @@ df_reencoded = df_unexpanded.select(
 )
 ```
 
+### Conversion details
+
 Internally, `pbspark` uses protobuf's `MessageToDict`, which deserializes everything into JSON compatible objects by default. The exceptions are
 * protobuf's bytes type, which `MessageToDict` would decode to a base64-encoded string; `pbspark` will decode any bytes fields directly to a spark `BinaryType`.
 * protobuf's well known type, Timestamp type, which `MessageToDict` would decode to a string; `pbspark` will decode any Timestamp messages directly to a spark `TimestampType` (via python datetime objects).
 
-There are two helper functions, `df_to_protobuf` and `df_from_protobuf` which can be used if no custom conversion is necessary. They have a kwarg `expanded`, which will also take care of expanding/contracting the data between the single `value` column used in these examples and a dataframe which contains a column for each message field. `MessageConverter` instances can optionally be passed to these functions.
-
-```python
-example = SimpleMessage(name="hello", quantity=5, measure=12.3)
-data = [{"value": example.SerializeToString()}]
-df_encoded = spark.createDataFrame(data)
-
-from pbspark import df_from_protobuf
-from pbspark import df_to_protobuf
-
-# expanded=True will perform a `.select("value.*")` after converting
-df_expanded = df_from_protobuf(df_encoded, SimpleMessage, expanded=True)
-
-# expanded=True will first pack data using `struct(df[c] for c in df.columns)`
-df_reencoded = df_to_protobuf(df_expanded, SimpleMessage, expanded=True)
-```
+### Custom conversion of message types
 
 Custom serde is also supported. Suppose we use our `NestedMessage` from the repository's example and we want to serialize the key and value together into a single string.
 
@@ -144,6 +165,8 @@ df_decoded.select("value.nested").show()
 # +-----------+
 ```
 
+### How to write conversion functions
+
 More generally, custom serde functions should be written in the following format.
 
 ```python
@@ -162,3 +185,7 @@ def decode_nested(s: str, message: NestedMessage, path: str):
     message.key = key
     message.value = value
 ```
+
+### Known issues
+
+`RecursionError` when using self-referencing protobuf messages. Spark schemas do not allow for arbitrary depth, so protobuf messages which are circular- or self-referencing will result in infinite recursion errors when inferring the schema. If you have message structures like this you should resort to creating custom conversion functions, which forcibly limit the structural depth when converting these messages.
