@@ -53,7 +53,7 @@ df_expanded.show()
 # |hello|       5|   12.3|
 # +-----+--------+-------+
 
-# expanded=True will first pack data using `struct(df[c] for c in df.columns)`,
+# expanded=True will first pack data using `struct([df[c] for c in df.columns])`,
 # use this if the passed dataframe is already expanded
 df_reencoded = df_to_protobuf(df_expanded, SimpleMessage, expanded=True)
 ```
