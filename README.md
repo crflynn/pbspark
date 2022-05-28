@@ -65,9 +65,9 @@ For flattened data, we can also (re-)encode after collecting and packing into a 
 ```python
 from pyspark.sql.functions import struct
 
-df_unflattened = df_flattened.withColumn(
-    "value", struct([df_flattened[c] for c in df_flattened.columns])
-).select("value")
+df_unflattened = df_flattened.select(
+    struct([df_flattened[c] for c in df_flattened.columns]).alias("value")
+)
 df_unflattened.show()
 df_reencoded = df_unflattened.select(
     mc.to_protobuf(df_unflattened.value, SimpleMessage).alias("value")
