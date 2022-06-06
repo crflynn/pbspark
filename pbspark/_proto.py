@@ -277,6 +277,8 @@ class MessageConverter:
         kwargs = options or {}
 
         def decoder(s: bytes) -> dict:
+            if isinstance(s, bytearray):
+                s = bytes(s)
             return self.message_to_dict(message_type.FromString(s), **kwargs)
 
         return decoder
