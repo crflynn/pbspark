@@ -1,4 +1,4 @@
 python 3.9.5
 poetry 1.1.11
-protoc 3.19.1
+protoc 21.1
 java adoptopenjdk-8.0.275+1
