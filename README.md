@@ -28,6 +28,33 @@ message SimpleMessage {
 
 ### Basic conversion functions
 
+There are two functions for operating on columns, `to_protobuf` and `from_protobuf`. These operations convert to/from an encoded protobuf column to a column of a struct representing the inferred message structure. `MessageConverter` instances (discussed below) can optionally be passed to these functions.
+
+```python
+from pyspark.sql.session import SparkSession
+from example.example_pb2 import SimpleMessage
+from pbspark import from_protobuf
+from pbspark import to_protobuf
+
+spark = SparkSession.builder.getOrCreate()
+
+example = SimpleMessage(name="hello", quantity=5, measure=12.3)
+data = [{"value": example.SerializeToString()}]
+df_encoded = spark.createDataFrame(data)
+
+df_decoded = df_encoded.select(from_protobuf(df_encoded.value, SimpleMessage).alias("value"))
+df_expanded = df_decoded.select("value.*")
+df_expanded.show()
+
+# +-----+--------+-------+
+# | name|quantity|measure|
+# +-----+--------+-------+
+# |hello|       5|   12.3|
+# +-----+--------+-------+
+
+df_reencoded = df_decoded.select(to_protobuf(df_decoded.value, SimpleMessage).alias("value"))
+```
+
 There are two helper functions, `df_to_protobuf` and `df_from_protobuf` for use on dataframes. They have a kwarg `expanded`, which will also take care of expanding/contracting the data between the single `value` column used in these examples and a dataframe which contains a column for each message field. `MessageConverter` instances (discussed below) can optionally be passed to these functions.
 
 ```python
@@ -60,7 +87,7 @@ df_reencoded = df_to_protobuf(df_expanded, SimpleMessage, expanded=True)
 
 ### Column conversion using the `MessageConverter`
 
-Using an instance of `MessageConverter` we can decode the column of encoded messages into a column of spark `StructType` and then expand the fields.
+The four helper functions above are also available as methods on the `MessageConverter` class. Using an instance of `MessageConverter` we can decode the column of encoded messages into a column of spark `StructType` and then expand the fields.
 
 ```python
 from pyspark.sql.session import SparkSession

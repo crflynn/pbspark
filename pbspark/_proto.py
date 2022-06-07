@@ -360,6 +360,73 @@ class MessageConverter:
         protobuf_encoder_udf = self.get_encoder_udf(message_type, options)
         return protobuf_encoder_udf(column)
 
+    def df_from_protobuf(
+        self,
+        df: DataFrame,
+        message_type: t.Type[Message],
+        options: t.Optional[dict] = None,
+        expanded: bool = False,
+    ) -> DataFrame:
+        """Decode a dataframe of encoded protobuf.
+
+        If expanded, return a dataframe in which each field is its own column. Otherwise
+        return a dataframe with a single struct column named `value`.
+        """
+        df_decoded = df.select(
+            self.from_protobuf(df.columns[0], message_type, options).alias("value")
+        )
+        if expanded:
+            df_decoded = df_decoded.select("value.*")
+        return df_decoded
+
+    def df_to_protobuf(
+        self,
+        df: DataFrame,
+        message_type: t.Type[Message],
+        options: t.Optional[dict] = None,
+        expanded: bool = False,
+    ) -> DataFrame:
+        """Encode data in a dataframe to protobuf as column `value`.
+
+        If `expanded`, the passed dataframe columns will be packed into a struct before
+        converting. Otherwise it is assumed that the dataframe passed is a single column
+        of data already packed into a struct.
+
+        Returns a dataframe with a single column named `value` containing encoded data.
+        """
+        if expanded:
+            df_struct = df.select(
+                struct([df[c] for c in df.columns]).alias("value")  # type: ignore[arg-type]
+            )
+        else:
+            df_struct = df.select(col(df.columns[0]).alias("value"))
+        df_encoded = df_struct.select(
+            self.to_protobuf(df_struct.value, message_type, options).alias("value")
+        )
+        return df_encoded
+
+
+def from_protobuf(
+    data: t.Union[Column, str],
+    message_type: t.Type[Message],
+    options: t.Optional[dict] = None,
+    mc: MessageConverter = None,
+) -> Column:
+    """Deserialize protobuf messages to spark structs"""
+    mc = mc or MessageConverter()
+    return mc.from_protobuf(data=data, message_type=message_type, options=options)
+
+
+def to_protobuf(
+    data: t.Union[Column, str],
+    message_type: t.Type[Message],
+    options: t.Optional[dict] = None,
+    mc: MessageConverter = None,
+) -> Column:
+    """Serialize spark structs to protobuf messages."""
+    mc = mc or MessageConverter()
+    return mc.to_protobuf(data=data, message_type=message_type, options=options)
+
 
 def df_from_protobuf(
     df: DataFrame,
@@ -374,12 +441,9 @@ def df_from_protobuf(
     return a dataframe with a single struct column named `value`.
     """
     mc = mc or MessageConverter()
-    df_decoded = df.select(
-        mc.from_protobuf(df.columns[0], message_type, options).alias("value")
+    return mc.df_from_protobuf(
+        df=df, message_type=message_type, options=options, expanded=expanded
     )
-    if expanded:
-        df_decoded = df_decoded.select("value.*")
-    return df_decoded
 
 
 def df_to_protobuf(
@@ -398,13 +462,6 @@ def df_to_protobuf(
     Returns a dataframe with a single column named `value` containing encoded data.
     """
     mc = mc or MessageConverter()
-    if expanded:
-        df_struct = df.select(
-            struct([df[c] for c in df.columns]).alias("value")  # type: ignore[arg-type]
-        )
-    else:
-        df_struct = df.select(col(df.columns[0]).alias("value"))
-    df_encoded = df_struct.select(
-        mc.to_protobuf(df_struct.value, message_type, options).alias("value")
+    return mc.df_to_protobuf(
+        df=df, message_type=message_type, options=options, expanded=expanded
     )
-    return df_encoded
