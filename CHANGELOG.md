@@ -1,5 +1,10 @@
 # Changelog
 
+## 2022-06-13 - 0.6.0
+
+* Add ``to_protobuf`` and ``from_protobuf`` functions to operate on columns without needing a ``MessageConverter``.
+* Add ``df_to_protobuf`` and ``df_from_protobuf`` functions to operate on DataFrames without needing a ``MessageConverter``. These functions also optionally handle struct expansion.
+
 ## 2022-06-12 - 0.5.1
 
 * Bugfix: Fix ``bytearray`` TypeError when using newer versions of protobuf
