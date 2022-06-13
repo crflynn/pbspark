@@ -30,6 +30,10 @@ from example.example_pb2 import NestedMessage
 from example.example_pb2 import RecursiveMessage
 from pbspark._proto import MessageConverter
 from pbspark._proto import _patched_convert_scalar_field_value
+from pbspark._proto import df_from_protobuf
+from pbspark._proto import df_to_protobuf
+from pbspark._proto import from_protobuf
+from pbspark._proto import to_protobuf
 from tests.fixtures import decimal_serializer  # type: ignore[import]
 from tests.fixtures import encode_recursive
 
@@ -65,6 +69,11 @@ def spark():
     spark = SparkSession(sc).builder.getOrCreate()
     spark.conf.set("spark.sql.session.timeZone", "UTC")
     return spark
+
+
+@pytest.fixture(params=[True, False])
+def expanded(request):
+    return request.param
 
 
 def test_get_spark_schema():
@@ -251,3 +260,43 @@ def test_recursive_message(spark):
     dfs.show(truncate=False)
     data = dfs.collect()
     assert data[0].asDict(True)["value"] == expected
+
+
+def test_to_from_protobuf(example, spark, expanded):
+    data = [{"value": example.SerializeToString()}]
+
+    df = spark.createDataFrame(data)  # type: ignore[type-var]
+
+    df_decoded = df.select(from_protobuf(df.value, ExampleMessage).alias("value"))
+
+    mc = MessageConverter()
+    assert df_decoded.schema.fields[0].dataType == mc.get_spark_schema(ExampleMessage)
+
+    df_encoded = df_decoded.select(
+        to_protobuf(df_decoded.value, ExampleMessage).alias("value")
+    )
+
+    assert df_encoded.columns == ["value"]
+    assert df_encoded.schema == df.schema
+    assert df.collect() == df_encoded.collect()
+
+
+def test_df_to_from_protobuf(example, spark, expanded):
+    data = [{"value": example.SerializeToString()}]
+
+    df = spark.createDataFrame(data)  # type: ignore[type-var]
+
+    df_decoded = df_from_protobuf(df, ExampleMessage, expanded=expanded)
+
+    mc = MessageConverter()
+    schema = mc.get_spark_schema(ExampleMessage)
+    if expanded:
+        assert df_decoded.schema == schema
+    else:
+        assert df_decoded.schema.fields[0].dataType == schema
+
+    df_encoded = df_to_protobuf(df_decoded, ExampleMessage, expanded=expanded)
+
+    assert df_encoded.columns == ["value"]
+    assert df_encoded.schema == df.schema
+    assert df.collect() == df_encoded.collect()
