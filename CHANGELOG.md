@@ -1,5 +1,9 @@
 # Changelog
 
+## 2022-06-12 - 0.5.1
+
+* Bugfix: Fix ``bytearray`` TypeError when using newer versions of protobuf
+
 ## 2022-05-20 - 0.5.0
 
 * Breaking: return type instances to be passed to custom serializers rather than type class + init kwargs
