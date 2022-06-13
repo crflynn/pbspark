@@ -289,12 +289,11 @@ def test_df_to_from_protobuf(example, spark, expanded):
     df_decoded = df_from_protobuf(df, ExampleMessage, expanded=expanded)
 
     mc = MessageConverter()
+    schema = mc.get_spark_schema(ExampleMessage)
     if expanded:
-        assert df_decoded.schema == mc.get_spark_schema(ExampleMessage)
+        assert df_decoded.schema == schema
     else:
-        assert df_decoded.schema.fields[0].dataType == mc.get_spark_schema(
-            ExampleMessage
-        )
+        assert df_decoded.schema.fields[0].dataType == schema
 
     df_encoded = df_to_protobuf(df_decoded, ExampleMessage, expanded=expanded)
 
