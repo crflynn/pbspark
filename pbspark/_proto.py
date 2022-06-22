@@ -249,7 +249,7 @@ class MessageConverter:
                 if full_name in self._message_type_to_spark_type_map:
                     spark_type = self._message_type_to_spark_type_map[full_name]
                 else:
-                    spark_type = self.get_spark_schema(field.message_type)
+                    spark_type = self.get_spark_schema(field.message_type, options)
             # protobuf converts to/from b64 strings, but we prefer to stay as bytes
             elif (
                 field.cpp_type == FieldDescriptor.CPPTYPE_STRING
