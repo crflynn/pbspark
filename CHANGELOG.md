@@ -1,5 +1,9 @@
 # Changelog
 
+## 2022-06-22 - 0.6.1
+
+* Bugfix: Fixed a bug where ``options`` was not being passed recursively in ``get_spark_schema``. 
+
 ## 2022-06-13 - 0.6.0
 
 * Add ``to_protobuf`` and ``from_protobuf`` functions to operate on columns without needing a ``MessageConverter``.
