@@ -53,7 +53,6 @@ message ExampleMessage {
   google.protobuf.Timestamp timestamp = 22;
   google.protobuf.Duration duration = 23;
   DecimalMessage decimal = 24;
-  // wrappers
   google.protobuf.DoubleValue doublevalue = 25;
   google.protobuf.FloatValue floatvalue = 26;
   google.protobuf.Int64Value int64value = 27;

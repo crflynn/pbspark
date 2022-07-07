@@ -178,9 +178,7 @@ class ExampleMessage(google.protobuf.message.Message):
     @property
     def decimal(self) -> global___DecimalMessage: ...
     @property
-    def doublevalue(self) -> google.protobuf.wrappers_pb2.DoubleValue:
-        """wrappers"""
-        pass
+    def doublevalue(self) -> google.protobuf.wrappers_pb2.DoubleValue: ...
     @property
     def floatvalue(self) -> google.protobuf.wrappers_pb2.FloatValue: ...
     @property
