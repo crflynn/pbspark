@@ -139,6 +139,7 @@ df_reencoded = df_unexpanded.select(
 Internally, `pbspark` uses protobuf's `MessageToDict`, which deserializes everything into JSON compatible objects by default. The exceptions are
 * protobuf's bytes type, which `MessageToDict` would decode to a base64-encoded string; `pbspark` will decode any bytes fields directly to a spark `BinaryType`.
 * protobuf's well known type, Timestamp type, which `MessageToDict` would decode to a string; `pbspark` will decode any Timestamp messages directly to a spark `TimestampType` (via python datetime objects).
+* protobuf's int64 types, which `MessageToDict` would decode to a string for compatibility reasons; `pbspark` will decode these to `LongType`.
 
 ### Custom conversion of message types
 
