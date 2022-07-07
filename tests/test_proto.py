@@ -46,6 +46,8 @@ def example():
     ex = ExampleMessage(
         string="asdf",
         int32=69,
+        int64=789,
+        uint64=404,
         float=4.20,
         stringlist=["one", "two", "three"],
         bytes=b"something",
@@ -152,6 +154,8 @@ def test_get_decoder(example):
     assert decoded == mc.message_to_dict(example)
     expected = {
         "int32": 69,
+        "int64": 789,
+        "uint64": 404,
         "float": 4.2,
         "enum": "first",
         "string": "asdf",

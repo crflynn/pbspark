@@ -79,6 +79,9 @@ class _Printer(json_format._Printer):  # type: ignore
             and field.type == FieldDescriptor.TYPE_BYTES
         ):
             return value
+        # don't convert int64s to string (protobuf does this for js precision compat)
+        elif field.cpp_type in json_format._INT64_TYPES:
+            return value
         return super()._FieldToJsonObject(field, value)
 
 
