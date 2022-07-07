@@ -7,6 +7,15 @@ from google.protobuf import json_format
 from google.protobuf.duration_pb2 import Duration
 from google.protobuf.json_format import MessageToDict
 from google.protobuf.timestamp_pb2 import Timestamp
+from google.protobuf.wrappers_pb2 import BoolValue
+from google.protobuf.wrappers_pb2 import BytesValue
+from google.protobuf.wrappers_pb2 import DoubleValue
+from google.protobuf.wrappers_pb2 import FloatValue
+from google.protobuf.wrappers_pb2 import Int32Value
+from google.protobuf.wrappers_pb2 import Int64Value
+from google.protobuf.wrappers_pb2 import StringValue
+from google.protobuf.wrappers_pb2 import UInt32Value
+from google.protobuf.wrappers_pb2 import UInt64Value
 from pyspark import SparkContext
 from pyspark.serializers import CloudPickleSerializer
 from pyspark.sql.functions import struct
@@ -61,6 +70,15 @@ def example():
         decimal=DecimalMessage(
             value="3.50",
         ),
+        doublevalue=DoubleValue(value=1.23),
+        floatvalue=FloatValue(value=2.34),
+        int64value=Int64Value(value=9001),
+        uint64value=UInt64Value(value=9002),
+        int32value=Int32Value(value=666),
+        uint32value=UInt32Value(value=789),
+        boolvalue=BoolValue(value=True),
+        stringvalue=StringValue(value="qwerty"),
+        bytesvalue=BytesValue(value=b"buf"),
     )
     return ex
 
@@ -131,6 +149,15 @@ def test_get_spark_schema():
             StructField("timestamp", TimestampType(), True),
             StructField("duration", StringType(), True),
             StructField("decimal", DecimalType(10, 2), True),
+            StructField("doublevalue", DoubleType(), True),
+            StructField("floatvalue", FloatType(), True),
+            StructField("int64value", LongType(), True),
+            StructField("uint64value", LongType(), True),
+            StructField("int32value", IntegerType(), True),
+            StructField("uint32value", LongType(), True),
+            StructField("boolvalue", BooleanType(), True),
+            StructField("stringvalue", StringType(), True),
+            StructField("bytesvalue", BinaryType(), True),
         ]
     )
     assert schema == expected_schema
@@ -165,6 +192,15 @@ def test_get_decoder(example):
         "timestamp": example.timestamp.ToDatetime(),
         "duration": example.duration.ToJsonString(),
         "decimal": Decimal(example.decimal.value),
+        "doublevalue": 1.23,
+        "floatvalue": 2.34,
+        "int64value": 9001,
+        "uint64value": 9002,
+        "int32value": 666,
+        "uint32value": 789,
+        "boolvalue": True,
+        "stringvalue": "qwerty",
+        "bytesvalue": b"buf",
     }
     assert decoded == expected
 

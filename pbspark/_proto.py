@@ -34,10 +34,22 @@ from pbspark._timestamp import _to_datetime
 # Built in types like these have special methods
 # for serialization via MessageToDict. Because the
 # MessageToDict function is an intermediate step to
-# JSON, these types are serialized to strings.
+# JSON, some types are serialized to strings.
 _MESSAGETYPE_TO_SPARK_TYPE_MAP: t.Dict[str, DataType] = {
+    # google/protobuf/timestamp.proto
     "google.protobuf.Timestamp": StringType(),
+    # google/protobuf/duration.proto
     "google.protobuf.Duration": StringType(),
+    # google/protobuf/wrappers.proto
+    "google.protobuf.DoubleValue": DoubleType(),
+    "google.protobuf.FloatValue": FloatType(),
+    "google.protobuf.Int64Value": LongType(),
+    "google.protobuf.UInt64Value": LongType(),
+    "google.protobuf.Int32Value": IntegerType(),
+    "google.protobuf.UInt32Value": LongType(),
+    "google.protobuf.BoolValue": BooleanType(),
+    "google.protobuf.StringValue": StringType(),
+    "google.protobuf.BytesValue": BinaryType(),
 }
 
 # Protobuf types map to these CPP Types. We map
@@ -105,13 +117,13 @@ class _Parser(json_format._Parser):  # type: ignore
 # we handle bytes parser by decorating to handle byte fields first
 def _handle_bytes(func):
     @wraps(func)
-    def wrapper(value, field, require_str=False):
+    def wrapper(value, field, path, require_str=False):
         if (
             field.cpp_type == FieldDescriptor.CPPTYPE_STRING
             and field.type == FieldDescriptor.TYPE_BYTES
         ):
             return bytes(value)  # convert from bytearray to bytes
-        return func(value, field, require_str)
+        return func(value=value, field=field, path=path, require_str=require_str)
 
     return wrapper
 

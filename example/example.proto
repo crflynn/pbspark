@@ -4,6 +4,7 @@ package example;
 
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/duration.proto";
+import "google/protobuf/wrappers.proto";
 
 message SimpleMessage {
   string name = 1;
@@ -52,6 +53,16 @@ message ExampleMessage {
   google.protobuf.Timestamp timestamp = 22;
   google.protobuf.Duration duration = 23;
   DecimalMessage decimal = 24;
+  // wrappers
+  google.protobuf.DoubleValue doublevalue = 25;
+  google.protobuf.FloatValue floatvalue = 26;
+  google.protobuf.Int64Value int64value = 27;
+  google.protobuf.UInt64Value uint64value = 28;
+  google.protobuf.Int32Value int32value = 29;
+  google.protobuf.UInt32Value uint32value = 30;
+  google.protobuf.BoolValue boolvalue = 31;
+  google.protobuf.StringValue stringvalue = 32;
+  google.protobuf.BytesValue bytesvalue = 33;
 }
 
 message RecursiveMessage {

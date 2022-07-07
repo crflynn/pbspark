@@ -9,6 +9,7 @@ import google.protobuf.internal.containers
 import google.protobuf.internal.enum_type_wrapper
 import google.protobuf.message
 import google.protobuf.timestamp_pb2
+import google.protobuf.wrappers_pb2
 import typing
 import typing_extensions
 
@@ -131,6 +132,15 @@ class ExampleMessage(google.protobuf.message.Message):
     TIMESTAMP_FIELD_NUMBER: builtins.int
     DURATION_FIELD_NUMBER: builtins.int
     DECIMAL_FIELD_NUMBER: builtins.int
+    DOUBLEVALUE_FIELD_NUMBER: builtins.int
+    FLOATVALUE_FIELD_NUMBER: builtins.int
+    INT64VALUE_FIELD_NUMBER: builtins.int
+    UINT64VALUE_FIELD_NUMBER: builtins.int
+    INT32VALUE_FIELD_NUMBER: builtins.int
+    UINT32VALUE_FIELD_NUMBER: builtins.int
+    BOOLVALUE_FIELD_NUMBER: builtins.int
+    STRINGVALUE_FIELD_NUMBER: builtins.int
+    BYTESVALUE_FIELD_NUMBER: builtins.int
     int32: builtins.int
     int64: builtins.int
     uint32: builtins.int
@@ -167,6 +177,26 @@ class ExampleMessage(google.protobuf.message.Message):
     def duration(self) -> google.protobuf.duration_pb2.Duration: ...
     @property
     def decimal(self) -> global___DecimalMessage: ...
+    @property
+    def doublevalue(self) -> google.protobuf.wrappers_pb2.DoubleValue:
+        """wrappers"""
+        pass
+    @property
+    def floatvalue(self) -> google.protobuf.wrappers_pb2.FloatValue: ...
+    @property
+    def int64value(self) -> google.protobuf.wrappers_pb2.Int64Value: ...
+    @property
+    def uint64value(self) -> google.protobuf.wrappers_pb2.UInt64Value: ...
+    @property
+    def int32value(self) -> google.protobuf.wrappers_pb2.Int32Value: ...
+    @property
+    def uint32value(self) -> google.protobuf.wrappers_pb2.UInt32Value: ...
+    @property
+    def boolvalue(self) -> google.protobuf.wrappers_pb2.BoolValue: ...
+    @property
+    def stringvalue(self) -> google.protobuf.wrappers_pb2.StringValue: ...
+    @property
+    def bytesvalue(self) -> google.protobuf.wrappers_pb2.BytesValue: ...
     def __init__(
         self,
         *,
@@ -194,14 +224,35 @@ class ExampleMessage(google.protobuf.message.Message):
         timestamp: typing.Optional[google.protobuf.timestamp_pb2.Timestamp] = ...,
         duration: typing.Optional[google.protobuf.duration_pb2.Duration] = ...,
         decimal: typing.Optional[global___DecimalMessage] = ...,
+        doublevalue: typing.Optional[google.protobuf.wrappers_pb2.DoubleValue] = ...,
+        floatvalue: typing.Optional[google.protobuf.wrappers_pb2.FloatValue] = ...,
+        int64value: typing.Optional[google.protobuf.wrappers_pb2.Int64Value] = ...,
+        uint64value: typing.Optional[google.protobuf.wrappers_pb2.UInt64Value] = ...,
+        int32value: typing.Optional[google.protobuf.wrappers_pb2.Int32Value] = ...,
+        uint32value: typing.Optional[google.protobuf.wrappers_pb2.UInt32Value] = ...,
+        boolvalue: typing.Optional[google.protobuf.wrappers_pb2.BoolValue] = ...,
+        stringvalue: typing.Optional[google.protobuf.wrappers_pb2.StringValue] = ...,
+        bytesvalue: typing.Optional[google.protobuf.wrappers_pb2.BytesValue] = ...,
     ) -> None: ...
     def HasField(
         self,
         field_name: typing_extensions.Literal[
+            "boolvalue",
+            b"boolvalue",
+            "bytesvalue",
+            b"bytesvalue",
             "decimal",
             b"decimal",
+            "doublevalue",
+            b"doublevalue",
             "duration",
             b"duration",
+            "floatvalue",
+            b"floatvalue",
+            "int32value",
+            b"int32value",
+            "int64value",
+            b"int64value",
             "nested",
             b"nested",
             "oneof",
@@ -210,8 +261,14 @@ class ExampleMessage(google.protobuf.message.Message):
             b"oneofint32",
             "oneofstring",
             b"oneofstring",
+            "stringvalue",
+            b"stringvalue",
             "timestamp",
             b"timestamp",
+            "uint32value",
+            b"uint32value",
+            "uint64value",
+            b"uint64value",
         ],
     ) -> builtins.bool: ...
     def ClearField(
@@ -219,12 +276,18 @@ class ExampleMessage(google.protobuf.message.Message):
         field_name: typing_extensions.Literal[
             "bool",
             b"bool",
+            "boolvalue",
+            b"boolvalue",
             "bytes",
             b"bytes",
+            "bytesvalue",
+            b"bytesvalue",
             "decimal",
             b"decimal",
             "double",
             b"double",
+            "doublevalue",
+            b"doublevalue",
             "duration",
             b"duration",
             "enum",
@@ -235,10 +298,16 @@ class ExampleMessage(google.protobuf.message.Message):
             b"fixed64",
             "float",
             b"float",
+            "floatvalue",
+            b"floatvalue",
             "int32",
             b"int32",
+            "int32value",
+            b"int32value",
             "int64",
             b"int64",
+            "int64value",
+            b"int64value",
             "map",
             b"map",
             "nested",
@@ -261,12 +330,18 @@ class ExampleMessage(google.protobuf.message.Message):
             b"string",
             "stringlist",
             b"stringlist",
+            "stringvalue",
+            b"stringvalue",
             "timestamp",
             b"timestamp",
             "uint32",
             b"uint32",
+            "uint32value",
+            b"uint32value",
             "uint64",
             b"uint64",
+            "uint64value",
+            b"uint64value",
         ],
     ) -> None: ...
     def WhichOneof(
