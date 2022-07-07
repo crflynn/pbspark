@@ -1,5 +1,10 @@
 # Changelog
 
+## 2022-07-07 - 0.7.0
+
+* Bugfix: Fixed a bug where int64 protobuf types were not being properly converted into spark types.
+* Added support for protobuf wrapper types.
+
 ## 2022-06-22 - 0.6.1
 
 * Bugfix: Fixed a bug where ``options`` was not being passed recursively in ``get_spark_schema``. 

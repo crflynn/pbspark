@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pbspark"
-version = "0.6.1"
+version = "0.7.0"
 description = "Convert between protobuf messages and pyspark dataframes"
 authors = ["flynn <crf204@gmail.com>"]
 license = "MIT"
