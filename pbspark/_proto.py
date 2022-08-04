@@ -239,10 +239,10 @@ class MessageConverter:
         return parser.ConvertMessage(value=value, message=message, path=None)
 
     def get_spark_schema(
-            self,
-            descriptor: t.Union[t.Type[Message], Descriptor],
-            options: t.Optional[dict] = None,
-            _seen_descriptors: t.Optional[set] = None
+        self,
+        descriptor: t.Union[t.Type[Message], Descriptor],
+        options: t.Optional[dict] = None,
+        _seen_descriptors: t.Optional[set] = None
     ) -> DataType:
         """Generate a spark schema from a message type or descriptor
         Given a message type generated from protoc (or its descriptor),
