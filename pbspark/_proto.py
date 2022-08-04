@@ -255,6 +255,7 @@ class MessageConverter:
         options = options or {}
         use_camelcase = not options.get("preserving_proto_field_name", False)
         ignore_deprecated = options.get("ignore_deprecated", False)
+        fail_on_loop = options.get("fail_on_loop", False)
 
         schema = []
         if inspect.isclass(descriptor) and issubclass(descriptor, Message):
@@ -279,8 +280,11 @@ class MessageConverter:
             # Check for recursive loops in proto definition
             if field.message_type != None:  # noqa ("is None" is not the same as "!= None" here)
                 if field_full_name in _seen_descriptors_:
-                    logging.warning(f"Circular protobuf definition detected! Ignoring field: {field_full_name}")
-                    continue
+                    if fail_on_loop:
+                        logging.warning(f"Circular protobuf definition detected! Ignoring field: {field_full_name}")
+                        continue
+                    else:
+                        raise ValueError(f"Circular protobuf definition detected: {field_full_name}")
 
             spark_type: DataType
             if field.cpp_type == FieldDescriptor.CPPTYPE_MESSAGE:
