@@ -217,3 +217,11 @@ def decode_nested(s: str, message: NestedMessage, path: str):
 ### Known issues
 
 `RecursionError` when using self-referencing protobuf messages. Spark schemas do not allow for arbitrary depth, so protobuf messages which are circular- or self-referencing will result in infinite recursion errors when inferring the schema. If you have message structures like this you should resort to creating custom conversion functions, which forcibly limit the structural depth when converting these messages.
+
+## Development
+
+Ensure that [asdf](https://asdf-vm.com/) is installed, then run `make setup`.
+
+* To format code `make fmt`
+* To test code `make test`
+* To run protoc `make gen`

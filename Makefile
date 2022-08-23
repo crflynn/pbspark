@@ -29,3 +29,10 @@ publish: clean dist
 release: clean sdist
 	ghr -u crflynn -r pbspark -c $(shell git rev-parse HEAD) -delete -b "release" -n $(shell poetry version -s) $(shell poetry version -s) dist/*.tar.gz
 
+setup:
+	asdf plugin add python || true
+	asdf plugin add poetry || true
+	asdf plugin add protoc || true
+	asdf plugin add java || true
+	asdf install
+	poetry install
