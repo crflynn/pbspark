@@ -1,6 +1,8 @@
 import inspect
+import logging
 import typing as t
 from contextlib import contextmanager
+from copy import copy
 from functools import wraps
 
 from google.protobuf import json_format
@@ -240,31 +242,57 @@ class MessageConverter:
         self,
         descriptor: t.Union[t.Type[Message], Descriptor],
         options: t.Optional[dict] = None,
+        _seen_descriptors: t.Optional[set] = None
     ) -> DataType:
         """Generate a spark schema from a message type or descriptor
-
         Given a message type generated from protoc (or its descriptor),
         create a spark schema derived from the protobuf schema when
         serializing with ``MessageToDict``.
         """
+        # track which descriptors have been seen in the current proto graph (for loop identification)
+        _seen_descriptors_ = copy(_seen_descriptors) or set()
+
         options = options or {}
         use_camelcase = not options.get("preserving_proto_field_name", False)
+        ignore_deprecated = options.get("ignore_deprecated", False)
+        ignore_circular_definitions = options.get("ignore_circular_definitions", False)
+
         schema = []
         if inspect.isclass(descriptor) and issubclass(descriptor, Message):
             descriptor_ = descriptor.DESCRIPTOR
         else:
             descriptor_ = descriptor  # type: ignore[assignment]
+        _seen_descriptors_.add(descriptor_.full_name)
+
         full_name = descriptor_.full_name
         if full_name in self._message_type_to_spark_type_map:
             return self._message_type_to_spark_type_map[full_name]
+
         for field in descriptor_.fields:
+            field_full_name = field.message_type.full_name
+            if field.has_options:
+                field_options = field.GetOptions()
+
+                # Optionally ignore deprecated fields
+                if field_options.deprecated and ignore_deprecated:
+                    continue
+
+            # Check for recursive loops in proto definition
+            if field.message_type != None:  # noqa ("is None" is not the same as "!= None" here)
+                if field_full_name in _seen_descriptors_:
+                    if ignore_circular_definitions:
+                        logging.warning(f"Circular protobuf definition detected! Ignoring field: {field_full_name}")
+                        continue
+                    else:
+                        raise ValueError(f"Circular protobuf definition detected: {field_full_name}")
+
             spark_type: DataType
             if field.cpp_type == FieldDescriptor.CPPTYPE_MESSAGE:
                 full_name = field.message_type.full_name
                 if full_name in self._message_type_to_spark_type_map:
                     spark_type = self._message_type_to_spark_type_map[full_name]
                 else:
-                    spark_type = self.get_spark_schema(field.message_type, options)
+                    spark_type = self.get_spark_schema(field.message_type, options, _seen_descriptors_)
             # protobuf converts to/from b64 strings, but we prefer to stay as bytes
             elif (
                 field.cpp_type == FieldDescriptor.CPPTYPE_STRING
