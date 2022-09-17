@@ -235,6 +235,13 @@ Note that the import module is the same as the one passed to the builder from th
 
 To ensure that the module path is correct, you should run `protoc` from the relative root path of your proto files. For example, in this project, in the `Makefile` under the `gen` command, we call `protoc` from the project root rather than from within the `example` directory.
 
+```makefile
+export PROTO_PATH=.
+
+gen:
+	poetry run protoc -I $$PROTO_PATH --python_out=$$PROTO_PATH --mypy_out=$$PROTO_PATH --proto_path=$$PROTO_PATH $$PROTO_PATH/example/*.proto
+```
+
 ### Known issues
 
 `RecursionError` when using self-referencing protobuf messages. Spark schemas do not allow for arbitrary depth, so protobuf messages which are circular- or self-referencing will result in infinite recursion errors when inferring the schema. If you have message structures like this you should resort to creating custom conversion functions, which forcibly limit the structural depth when converting these messages.
