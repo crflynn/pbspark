@@ -214,6 +214,34 @@ def decode_nested(s: str, message: NestedMessage, path: str):
     message.value = value
 ```
 
+### Avoiding PicklingErrors
+
+A seemingly common issue with protobuf and distributed processing is when a `PicklingError` is encountered when transmitting (pickling) protobuf message types from a main process to a fork. To avoid this, you need to ensure that the fully qualified module name in your protoc-generated python file is the same as the module path from which the message type is imported. In other words, for the example here, the descriptor module passed to the builder is `example.example_pb2`
+
+```python
+# from example/example_pb2.py
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, "example.example_pb2", globals())
+                                                     ^^^^^^^^^^^^^^^^^^^
+```
+
+And to import the message type we would call the same module path:
+
+```python
+from example.example_pb2 import ExampleMessage
+     ^^^^^^^^^^^^^^^^^^^
+```
+
+Note that the import module is the same as the one passed to the builder from the protoc-generated python. If these do not match, then you will encounter a `PicklingError`. From the pickle documentation: *pickle can save and restore class instances transparently, however the class definition must be importable and live in the same module as when the object was stored.*
+
+To ensure that the module path is correct, you should run `protoc` from the relative root path of your proto files. For example, in this project, in the `Makefile` under the `gen` command, we call `protoc` from the project root rather than from within the `example` directory.
+
+```makefile
+export PROTO_PATH=.
+
+gen:
+	poetry run protoc -I $$PROTO_PATH --python_out=$$PROTO_PATH --mypy_out=$$PROTO_PATH --proto_path=$$PROTO_PATH $$PROTO_PATH/example/*.proto
+```
+
 ### Known issues
 
 `RecursionError` when using self-referencing protobuf messages. Spark schemas do not allow for arbitrary depth, so protobuf messages which are circular- or self-referencing will result in infinite recursion errors when inferring the schema. If you have message structures like this you should resort to creating custom conversion functions, which forcibly limit the structural depth when converting these messages.
