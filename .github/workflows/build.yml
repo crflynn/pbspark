@@ -69,9 +69,10 @@ jobs:
         poetry run black --check .
         poetry run mypy .
 
-    - name: Generate
-      run: |
-        make gen
+#    # broken in ci
+#    - name: Generate
+#      run: |
+#        make gen
 
     - name: Test
       run: |
