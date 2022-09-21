@@ -20,6 +20,7 @@ from google.protobuf.wrappers_pb2 import UInt32Value
 from google.protobuf.wrappers_pb2 import UInt64Value
 from pyspark import SparkContext
 from pyspark.serializers import CloudPickleSerializer
+from pyspark.sql.functions import col
 from pyspark.sql.functions import struct
 from pyspark.sql.session import SparkSession
 from pyspark.sql.types import ArrayType
@@ -34,6 +35,7 @@ from pyspark.sql.types import StringType
 from pyspark.sql.types import StructField
 from pyspark.sql.types import StructType
 from pyspark.sql.types import TimestampType
+from pyspark.sql.utils import PythonException
 
 from example.example_pb2 import DecimalMessage
 from example.example_pb2 import ExampleMessage
@@ -110,6 +112,11 @@ def use_integers_for_enums(request):
 
 @pytest.fixture(params=[True, False])
 def preserving_proto_field_name(request):
+    return request.param
+
+
+@pytest.fixture(params=[True, False])
+def ignore_unknown_fields(request):
     return request.param
 
 
@@ -450,3 +457,29 @@ def test_float_precision(spark):
     )
     data = df_decoded.collect()
     assert data[0].asDict(True)["float"] == pytest.approx(1.2)
+
+
+def test_ignore_unknown_fields(spark, ignore_unknown_fields):
+    example = ExampleMessage(string="asdf")
+    data = [{"value": example.SerializeToString()}]
+
+    df = spark.createDataFrame(data)  # type: ignore[type-var]
+
+    df_decoded = df_from_protobuf(
+        df=df,
+        message_type=ExampleMessage,
+        expanded=True,
+    )
+    df_decoded = df_decoded.withColumn("unknown", col("string"))
+    df_decoded.show()
+    df_recoded = df_to_protobuf(
+        df=df_decoded,
+        message_type=ExampleMessage,
+        ignore_unknown_fields=ignore_unknown_fields,
+        expanded=True,
+    )
+    if not ignore_unknown_fields:
+        with pytest.raises(PythonException):
+            df_recoded.collect()
+    else:
+        df_recoded.collect()
