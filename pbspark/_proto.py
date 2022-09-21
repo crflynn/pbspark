@@ -202,13 +202,28 @@ class MessageConverter:
     def message_to_dict(
         self,
         message: Message,
-        including_default_value_fields=False,
-        preserving_proto_field_name=False,
-        use_integers_for_enums=False,
-        descriptor_pool=None,
-        float_precision=None,
+        including_default_value_fields: bool = False,
+        preserving_proto_field_name: bool = False,
+        use_integers_for_enums: bool = False,
+        descriptor_pool: t.Optional[DescriptorPool] = None,
+        float_precision: t.Optional[int] = None,
     ):
-        """Custom MessageToDict using overridden printer."""
+        """Custom MessageToDict using overridden printer.
+
+        Args:
+            message: The protocol buffers message instance to serialize.
+            including_default_value_fields: If True, singular primitive fields,
+                repeated fields, and map fields will always be serialized.  If
+                False, only serialize non-empty fields.  Singular message fields
+                and oneof fields are not affected by this option.
+            preserving_proto_field_name: If True, use the original proto field
+                names as defined in the .proto file. If False, convert the field
+                names to lowerCamelCase.
+            use_integers_for_enums: If true, print integers instead of enum names.
+            descriptor_pool: A Descriptor Pool for resolving types. If None use the
+                default.
+            float_precision: If set, use this to specify float field valid digits.
+        """
         printer = _Printer(
             custom_serializers=self._custom_serializers,
             including_default_value_fields=including_default_value_fields,
@@ -239,16 +254,22 @@ class MessageConverter:
     def get_spark_schema(
         self,
         descriptor: t.Union[t.Type[Message], Descriptor],
-        options: t.Optional[dict] = None,
+        preserving_proto_field_name: bool = False,
+        use_integers_for_enums: bool = False,
     ) -> DataType:
         """Generate a spark schema from a message type or descriptor
 
         Given a message type generated from protoc (or its descriptor),
         create a spark schema derived from the protobuf schema when
         serializing with ``MessageToDict``.
+
+        Args:
+            descriptor: A message type or its descriptor
+            preserving_proto_field_name: If True, use the original proto field
+                names as defined in the .proto file. If False, convert the field
+                names to lowerCamelCase.
+            use_integers_for_enums: If true, print integers instead of enum names.
         """
-        options = options or {}
-        use_camelcase = not options.get("preserving_proto_field_name", False)
         schema = []
         if inspect.isclass(descriptor) and issubclass(descriptor, Message):
             descriptor_ = descriptor.DESCRIPTOR
@@ -264,96 +285,202 @@ class MessageConverter:
                 if full_name in self._message_type_to_spark_type_map:
                     spark_type = self._message_type_to_spark_type_map[full_name]
                 else:
-                    spark_type = self.get_spark_schema(field.message_type, options)
+                    spark_type = self.get_spark_schema(
+                        descriptor=field.message_type,
+                        preserving_proto_field_name=preserving_proto_field_name,
+                    )
             # protobuf converts to/from b64 strings, but we prefer to stay as bytes
             elif (
                 field.cpp_type == FieldDescriptor.CPPTYPE_STRING
                 and field.type == FieldDescriptor.TYPE_BYTES
             ):
                 spark_type = BinaryType()
+            elif (
+                field.cpp_type == FieldDescriptor.CPPTYPE_ENUM
+                and use_integers_for_enums
+            ):
+                spark_type = IntegerType()
             else:
                 spark_type = _CPPTYPE_TO_SPARK_TYPE_MAP[field.cpp_type]
             if field.label == FieldDescriptor.LABEL_REPEATED:
                 spark_type = ArrayType(spark_type, True)
-            field_name = field.camelcase_name if use_camelcase else field.name
+            field_name = (
+                field.camelcase_name if not preserving_proto_field_name else field.name
+            )
             schema.append((field_name, spark_type, True))
         struct_args = [StructField(*entry) for entry in schema]
         return StructType(struct_args)
 
     def get_decoder(
-        self, message_type: t.Type[Message], options: t.Optional[dict] = None
+        self,
+        message_type: t.Type[Message],
+        including_default_value_fields: bool = False,
+        preserving_proto_field_name: bool = False,
+        use_integers_for_enums: bool = False,
+        float_precision: t.Optional[int] = None,
     ) -> t.Callable:
         """Create a deserialization function for a message type.
 
         Create a function that accepts a serialized message bytestring
         and returns a dictionary representing the message.
 
-        The ``options`` arg should be a dictionary for the kwargs passsed
-        to ``MessageToDict``.
+        Args:
+            message_type: The message type for decoding.
+            including_default_value_fields: If True, singular primitive fields,
+                repeated fields, and map fields will always be serialized.  If
+                False, only serialize non-empty fields.  Singular message fields
+                and oneof fields are not affected by this option.
+            preserving_proto_field_name: If True, use the original proto field
+                names as defined in the .proto file. If False, convert the field
+                names to lowerCamelCase.
+            use_integers_for_enums: If true, print integers instead of enum names.
+            float_precision: If set, use this to specify float field valid digits.
         """
-        kwargs = options or {}
 
         def decoder(s: bytes) -> dict:
             if isinstance(s, bytearray):
                 s = bytes(s)
-            return self.message_to_dict(message_type.FromString(s), **kwargs)
+            return self.message_to_dict(
+                message_type.FromString(s),
+                including_default_value_fields=including_default_value_fields,
+                preserving_proto_field_name=preserving_proto_field_name,
+                use_integers_for_enums=use_integers_for_enums,
+                float_precision=float_precision,
+            )
 
         return decoder
 
     def get_decoder_udf(
-        self, message_type: t.Type[Message], options: t.Optional[dict] = None
+        self,
+        message_type: t.Type[Message],
+        including_default_value_fields: bool = False,
+        preserving_proto_field_name: bool = False,
+        use_integers_for_enums: bool = False,
+        float_precision: t.Optional[int] = None,
     ) -> t.Callable:
         """Create a deserialization udf for a message type.
 
         Creates a function for deserializing messages to dict
         with spark schema for expected output.
 
-        The ``options`` arg should be a dictionary for the kwargs passsed
-        to ``MessageToDict``.
+        Args:
+            message_type: The message type for decoding.
+            including_default_value_fields: If True, singular primitive fields,
+                repeated fields, and map fields will always be serialized.  If
+                False, only serialize non-empty fields.  Singular message fields
+                and oneof fields are not affected by this option.
+            preserving_proto_field_name: If True, use the original proto field
+                names as defined in the .proto file. If False, convert the field
+                names to lowerCamelCase.
+            use_integers_for_enums: If true, print integers instead of enum names.
+            float_precision: If set, use this to specify float field valid digits.
         """
         return udf(
-            self.get_decoder(message_type=message_type, options=options),
-            self.get_spark_schema(descriptor=message_type.DESCRIPTOR, options=options),
+            self.get_decoder(
+                message_type=message_type,
+                including_default_value_fields=including_default_value_fields,
+                preserving_proto_field_name=preserving_proto_field_name,
+                use_integers_for_enums=use_integers_for_enums,
+                float_precision=float_precision,
+            ),
+            self.get_spark_schema(
+                descriptor=message_type.DESCRIPTOR,
+                preserving_proto_field_name=preserving_proto_field_name,
+                use_integers_for_enums=use_integers_for_enums,
+            ),
         )
 
     def from_protobuf(
         self,
         data: t.Union[Column, str],
         message_type: t.Type[Message],
-        options: t.Optional[dict] = None,
+        including_default_value_fields: bool = False,
+        preserving_proto_field_name: bool = False,
+        use_integers_for_enums: bool = False,
+        float_precision: t.Optional[int] = None,
     ) -> Column:
         """Deserialize protobuf messages to spark structs.
 
         Given a column and protobuf message type, deserialize
         protobuf messages also using our custom serializers.
 
-        The ``options`` arg should be a dictionary for the kwargs passed
-        our message_to_dict (same args as protobuf's MessageToDict).
+        Args:
+            message_type: The message type for decoding.
+            including_default_value_fields: If True, singular primitive fields,
+                repeated fields, and map fields will always be serialized.  If
+                False, only serialize non-empty fields.  Singular message fields
+                and oneof fields are not affected by this option.
+            preserving_proto_field_name: If True, use the original proto field
+                names as defined in the .proto file. If False, convert the field
+                names to lowerCamelCase.
+            use_integers_for_enums: If true, print integers instead of enum names.
+            float_precision: If set, use this to specify float field valid digits.
         """
         column = col(data) if isinstance(data, str) else data
-        protobuf_decoder_udf = self.get_decoder_udf(message_type, options)
+        protobuf_decoder_udf = self.get_decoder_udf(
+            message_type=message_type,
+            including_default_value_fields=including_default_value_fields,
+            preserving_proto_field_name=preserving_proto_field_name,
+            use_integers_for_enums=use_integers_for_enums,
+            float_precision=float_precision,
+        )
         return protobuf_decoder_udf(column)
 
     def get_encoder(
-        self, message_type: t.Type[Message], options: t.Optional[dict] = None
+        self,
+        message_type: t.Type[Message],
+        ignore_unknown_fields: bool = False,
+        max_recursion_depth: int = 100,
     ) -> t.Callable:
-        kwargs = options or {}
+        """Create an encoding function for a message type.
+
+        Create a function that accepts a dictionary representing the message
+        and returns a serialized message bytestring.
+
+        Args:
+            message_type: The message type for encoding.
+            ignore_unknown_fields: If True, do not raise errors for unknown fields.
+            max_recursion_depth: max recursion depth of JSON message to be
+                deserialized. JSON messages over this depth will fail to be
+                deserialized. Default value is 100.
+        """
 
         def encoder(s: dict) -> bytes:
             message = message_type()
             # udf may pass a Row object, but we want to pass a dict to the parser
             if isinstance(s, Row):
                 s = s.asDict(recursive=True)
-            self.parse_dict(s, message, **kwargs)
+            self.parse_dict(
+                s,
+                message,
+                ignore_unknown_fields=ignore_unknown_fields,
+                max_recursion_depth=max_recursion_depth,
+            )
             return message.SerializeToString()
 
         return encoder
 
     def get_encoder_udf(
-        self, message_type: t.Type[Message], options: t.Optional[dict] = None
+        self,
+        message_type: t.Type[Message],
+        ignore_unknown_fields: bool = False,
+        max_recursion_depth: int = 100,
     ) -> t.Callable:
+        """Get a pyspark udf for encoding to protobuf.
+
+        Args:
+            message_type: The message type for encoding.
+            ignore_unknown_fields: If True, do not raise errors for unknown fields.
+            max_recursion_depth: max recursion depth of JSON message to be
+                deserialized. JSON messages over this depth will fail to be
+                deserialized. Default value is 100.
+        """
         return udf(
-            self.get_encoder(message_type=message_type, options=options),
+            self.get_encoder(
+                message_type=message_type,
+                ignore_unknown_fields=ignore_unknown_fields,
+                max_recursion_depth=max_recursion_depth,
+            ),
             BinaryType(),
         )
 
@@ -361,34 +488,67 @@ class MessageConverter:
         self,
         data: t.Union[Column, str],
         message_type: t.Type[Message],
-        options: t.Optional[dict] = None,
+        ignore_unknown_fields: bool = False,
+        max_recursion_depth: int = 100,
     ) -> Column:
         """Serialize spark structs to protobuf messages.
 
         Given a column and protobuf message type, serialize
         protobuf messages also using our custom serializers.
 
-        The ``options`` arg should be a dictionary for the kwargs passed
-        our parse_dict (same args as protobuf's ParseDict).
+        Args:
+            data: A pyspark column.
+            message_type: The message type for encoding.
+            ignore_unknown_fields: If True, do not raise errors for unknown fields.
+            max_recursion_depth: max recursion depth of JSON message to be
+                deserialized. JSON messages over this depth will fail to be
+                deserialized. Default value is 100.
         """
         column = col(data) if isinstance(data, str) else data
-        protobuf_encoder_udf = self.get_encoder_udf(message_type, options)
+        protobuf_encoder_udf = self.get_encoder_udf(
+            message_type,
+            ignore_unknown_fields=ignore_unknown_fields,
+            max_recursion_depth=max_recursion_depth,
+        )
         return protobuf_encoder_udf(column)
 
     def df_from_protobuf(
         self,
         df: DataFrame,
         message_type: t.Type[Message],
-        options: t.Optional[dict] = None,
+        including_default_value_fields: bool = False,
+        preserving_proto_field_name: bool = False,
+        use_integers_for_enums: bool = False,
+        float_precision: t.Optional[int] = None,
         expanded: bool = False,
     ) -> DataFrame:
         """Decode a dataframe of encoded protobuf.
 
-        If expanded, return a dataframe in which each field is its own column. Otherwise
-        return a dataframe with a single struct column named `value`.
+        Args:
+            df: A pyspark dataframe with encoded protobuf in the column at index 0.
+            message_type: The message type for decoding.
+            including_default_value_fields: If True, singular primitive fields,
+                repeated fields, and map fields will always be serialized.  If
+                False, only serialize non-empty fields.  Singular message fields
+                and oneof fields are not affected by this option.
+            preserving_proto_field_name: If True, use the original proto field
+                names as defined in the .proto file. If False, convert the field
+                names to lowerCamelCase.
+            use_integers_for_enums: If true, print integers instead of enum names.
+            float_precision: If set, use this to specify float field valid digits.
+            expanded: If True, return a dataframe in which each field is its own
+                column. Otherwise, return a dataframe with a single struct column
+                named `value`.
         """
         df_decoded = df.select(
-            self.from_protobuf(df.columns[0], message_type, options).alias("value")
+            self.from_protobuf(
+                data=df.columns[0],
+                message_type=message_type,
+                including_default_value_fields=including_default_value_fields,
+                preserving_proto_field_name=preserving_proto_field_name,
+                use_integers_for_enums=use_integers_for_enums,
+                float_precision=float_precision,
+            ).alias("value")
         )
         if expanded:
             df_decoded = df_decoded.select("value.*")
@@ -398,14 +558,23 @@ class MessageConverter:
         self,
         df: DataFrame,
         message_type: t.Type[Message],
-        options: t.Optional[dict] = None,
+        ignore_unknown_fields: bool = False,
+        max_recursion_depth: int = 100,
         expanded: bool = False,
     ) -> DataFrame:
         """Encode data in a dataframe to protobuf as column `value`.
 
-        If `expanded`, the passed dataframe columns will be packed into a struct before
-        converting. Otherwise it is assumed that the dataframe passed is a single column
-        of data already packed into a struct.
+        Args:
+            df: A pyspark dataframe.
+            message_type: The message type for encoding.
+            ignore_unknown_fields: If True, do not raise errors for unknown fields.
+            max_recursion_depth: max recursion depth of JSON message to be
+                deserialized. JSON messages over this depth will fail to be
+                deserialized. Default value is 100.
+            expanded: If True, the passed dataframe columns will be packed into a
+                struct before converting. Otherwise, it is assumed that the
+                dataframe passed is a single column of data already packed into a
+                struct.
 
         Returns a dataframe with a single column named `value` containing encoded data.
         """
@@ -416,7 +585,12 @@ class MessageConverter:
         else:
             df_struct = df.select(col(df.columns[0]).alias("value"))
         df_encoded = df_struct.select(
-            self.to_protobuf(df_struct.value, message_type, options).alias("value")
+            self.to_protobuf(
+                data=df_struct.value,
+                message_type=message_type,
+                ignore_unknown_fields=ignore_unknown_fields,
+                max_recursion_depth=max_recursion_depth,
+            ).alias("value")
         )
         return df_encoded
 
@@ -424,59 +598,140 @@ class MessageConverter:
 def from_protobuf(
     data: t.Union[Column, str],
     message_type: t.Type[Message],
-    options: t.Optional[dict] = None,
-    mc: MessageConverter = None,
+    including_default_value_fields: bool = False,
+    preserving_proto_field_name: bool = False,
+    use_integers_for_enums: bool = False,
+    float_precision: t.Optional[int] = None,
+    message_converter: MessageConverter = None,
 ) -> Column:
-    """Deserialize protobuf messages to spark structs"""
-    mc = mc or MessageConverter()
-    return mc.from_protobuf(data=data, message_type=message_type, options=options)
+    """Deserialize protobuf messages to spark structs
+
+    Args:
+        data: A pyspark column.
+        message_type: The message type for decoding.
+        including_default_value_fields: If True, singular primitive fields,
+            repeated fields, and map fields will always be serialized.  If
+            False, only serialize non-empty fields.  Singular message fields
+            and oneof fields are not affected by this option.
+        preserving_proto_field_name: If True, use the original proto field
+            names as defined in the .proto file. If False, convert the field
+            names to lowerCamelCase.
+        use_integers_for_enums: If true, print integers instead of enum names.
+        float_precision: If set, use this to specify float field valid digits.
+        message_converter: An instance of a message converter. If None, use the default.
+    """
+    message_converter = message_converter or MessageConverter()
+    return message_converter.from_protobuf(
+        data=data,
+        message_type=message_type,
+        including_default_value_fields=including_default_value_fields,
+        preserving_proto_field_name=preserving_proto_field_name,
+        use_integers_for_enums=use_integers_for_enums,
+        float_precision=float_precision,
+    )
 
 
 def to_protobuf(
     data: t.Union[Column, str],
     message_type: t.Type[Message],
-    options: t.Optional[dict] = None,
-    mc: MessageConverter = None,
+    ignore_unknown_fields: bool = False,
+    max_recursion_depth: int = 100,
+    message_converter: MessageConverter = None,
 ) -> Column:
-    """Serialize spark structs to protobuf messages."""
-    mc = mc or MessageConverter()
-    return mc.to_protobuf(data=data, message_type=message_type, options=options)
+    """Serialize spark structs to protobuf messages.
+
+    Given a column and protobuf message type, serialize
+    protobuf messages also using our custom serializers.
+
+    Args:
+        data: A pyspark column.
+        message_type: The message type for encoding.
+        ignore_unknown_fields: If True, do not raise errors for unknown fields.
+        max_recursion_depth: max recursion depth of JSON message to be
+            deserialized. JSON messages over this depth will fail to be
+            deserialized. Default value is 100.
+        message_converter: An instance of a message converter. If None, use the default.
+    """
+    message_converter = message_converter or MessageConverter()
+    return message_converter.to_protobuf(
+        data=data,
+        message_type=message_type,
+        ignore_unknown_fields=ignore_unknown_fields,
+        max_recursion_depth=max_recursion_depth,
+    )
 
 
 def df_from_protobuf(
     df: DataFrame,
     message_type: t.Type[Message],
-    options: t.Optional[dict] = None,
+    including_default_value_fields: bool = False,
+    preserving_proto_field_name: bool = False,
+    use_integers_for_enums: bool = False,
+    float_precision: t.Optional[int] = None,
     expanded: bool = False,
-    mc: MessageConverter = None,
+    message_converter: MessageConverter = None,
 ) -> DataFrame:
     """Decode a dataframe of encoded protobuf.
 
-    If expanded, return a dataframe in which each field is its own column. Otherwise
-    return a dataframe with a single struct column named `value`.
+    Args:
+        df: A pyspark dataframe with encoded protobuf in the column at index 0.
+        message_type: The message type for decoding.
+        including_default_value_fields: If True, singular primitive fields,
+            repeated fields, and map fields will always be serialized.  If
+            False, only serialize non-empty fields.  Singular message fields
+            and oneof fields are not affected by this option.
+        preserving_proto_field_name: If True, use the original proto field
+            names as defined in the .proto file. If False, convert the field
+            names to lowerCamelCase.
+        use_integers_for_enums: If true, print integers instead of enum names.
+        float_precision: If set, use this to specify float field valid digits.
+        expanded: If True, return a dataframe in which each field is its own
+            column. Otherwise, return a dataframe with a single struct column
+            named `value`.
+        message_converter: An instance of a message converter. If None, use the default.
     """
-    mc = mc or MessageConverter()
-    return mc.df_from_protobuf(
-        df=df, message_type=message_type, options=options, expanded=expanded
+    message_converter = message_converter or MessageConverter()
+    return message_converter.df_from_protobuf(
+        df=df,
+        message_type=message_type,
+        including_default_value_fields=including_default_value_fields,
+        preserving_proto_field_name=preserving_proto_field_name,
+        use_integers_for_enums=use_integers_for_enums,
+        float_precision=float_precision,
+        expanded=expanded,
     )
 
 
 def df_to_protobuf(
     df: DataFrame,
     message_type: t.Type[Message],
-    options: t.Optional[dict] = None,
+    ignore_unknown_fields: bool = False,
+    max_recursion_depth: int = 100,
     expanded: bool = False,
-    mc: MessageConverter = None,
+    message_converter: MessageConverter = None,
 ) -> DataFrame:
     """Encode data in a dataframe to protobuf as column `value`.
 
-    If `expanded`, the passed dataframe columns will be packed into a struct before
-    converting. Otherwise it is assumed that the dataframe passed is a single column
-    of data already packed into a struct.
+    Args:
+        df: A pyspark dataframe.
+        message_type: The message type for encoding.
+        ignore_unknown_fields: If True, do not raise errors for unknown fields.
+        max_recursion_depth: max recursion depth of JSON message to be
+            deserialized. JSON messages over this depth will fail to be
+            deserialized. Default value is 100.
+        expanded: If True, the passed dataframe columns will be packed into a
+            struct before converting. Otherwise, it is assumed that the
+            dataframe passed is a single column of data already packed into a
+            struct.
+        message_converter: An instance of a message converter. If None, use the default.
 
     Returns a dataframe with a single column named `value` containing encoded data.
     """
-    mc = mc or MessageConverter()
-    return mc.df_to_protobuf(
-        df=df, message_type=message_type, options=options, expanded=expanded
+    message_converter = message_converter or MessageConverter()
+    return message_converter.df_to_protobuf(
+        df=df,
+        message_type=message_type,
+        ignore_unknown_fields=ignore_unknown_fields,
+        max_recursion_depth=max_recursion_depth,
+        expanded=expanded,
     )

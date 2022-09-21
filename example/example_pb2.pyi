@@ -141,6 +141,7 @@ class ExampleMessage(google.protobuf.message.Message):
     BOOLVALUE_FIELD_NUMBER: builtins.int
     STRINGVALUE_FIELD_NUMBER: builtins.int
     BYTESVALUE_FIELD_NUMBER: builtins.int
+    CASE_NAME_FIELD_NUMBER: builtins.int
     int32: builtins.int
     int64: builtins.int
     uint32: builtins.int
@@ -195,6 +196,7 @@ class ExampleMessage(google.protobuf.message.Message):
     def stringvalue(self) -> google.protobuf.wrappers_pb2.StringValue: ...
     @property
     def bytesvalue(self) -> google.protobuf.wrappers_pb2.BytesValue: ...
+    case_name: typing.Text
     def __init__(
         self,
         *,
@@ -231,6 +233,7 @@ class ExampleMessage(google.protobuf.message.Message):
         boolvalue: typing.Optional[google.protobuf.wrappers_pb2.BoolValue] = ...,
         stringvalue: typing.Optional[google.protobuf.wrappers_pb2.StringValue] = ...,
         bytesvalue: typing.Optional[google.protobuf.wrappers_pb2.BytesValue] = ...,
+        case_name: typing.Text = ...,
     ) -> None: ...
     def HasField(
         self,
@@ -280,6 +283,8 @@ class ExampleMessage(google.protobuf.message.Message):
             b"bytes",
             "bytesvalue",
             b"bytesvalue",
+            "case_name",
+            b"case_name",
             "decimal",
             b"decimal",
             "double",

@@ -62,6 +62,7 @@ message ExampleMessage {
   google.protobuf.BoolValue boolvalue = 31;
   google.protobuf.StringValue stringvalue = 32;
   google.protobuf.BytesValue bytesvalue = 33;
+  string case_name = 34;
 }
 
 message RecursiveMessage {

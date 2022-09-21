@@ -41,9 +41,9 @@ jobs:
       uses: actions/cache@v1
       with:
         path: ~/.asdf
-        key: v1-${{ runner.os }}-${{ matrix.python-version }}-asdf-${{ hashFiles(format('{0}{1}', github.workspace, '/poetry.lock')) }}
+        key: v2-${{ runner.os }}-${{ matrix.python-version }}-asdf-${{ hashFiles(format('{0}{1}', github.workspace, '/poetry.lock')) }}
         restore-keys: |
-          v1-${{ runner.os }}-${{ matrix.python-version }}-asdf-
+          v2-${{ runner.os }}-${{ matrix.python-version }}-asdf-
 
     - name: Install python
       if: steps.cache-deps.outputs.cache-hit != 'true'
@@ -69,9 +69,10 @@ jobs:
         poetry run black --check .
         poetry run mypy .
 
-    - name: Generate
-      run: |
-        make gen
+#    # broken in ci
+#    - name: Generate
+#      run: |
+#        make gen
 
     - name: Test
       run: |
