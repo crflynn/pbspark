@@ -255,6 +255,7 @@ class MessageConverter:
         self,
         descriptor: t.Union[t.Type[Message], Descriptor],
         preserving_proto_field_name: bool = False,
+        use_integers_for_enums: bool = False,
     ) -> DataType:
         """Generate a spark schema from a message type or descriptor
 
@@ -267,6 +268,7 @@ class MessageConverter:
             preserving_proto_field_name: If True, use the original proto field
                 names as defined in the .proto file. If False, convert the field
                 names to lowerCamelCase.
+            use_integers_for_enums: If true, print integers instead of enum names.
         """
         schema = []
         if inspect.isclass(descriptor) and issubclass(descriptor, Message):
@@ -293,6 +295,11 @@ class MessageConverter:
                 and field.type == FieldDescriptor.TYPE_BYTES
             ):
                 spark_type = BinaryType()
+            elif (
+                field.cpp_type == FieldDescriptor.CPPTYPE_ENUM
+                and use_integers_for_enums
+            ):
+                spark_type = IntegerType()
             else:
                 spark_type = _CPPTYPE_TO_SPARK_TYPE_MAP[field.cpp_type]
             if field.label == FieldDescriptor.LABEL_REPEATED:
@@ -310,7 +317,6 @@ class MessageConverter:
         including_default_value_fields: bool = False,
         preserving_proto_field_name: bool = False,
         use_integers_for_enums: bool = False,
-        descriptor_pool: t.Optional[DescriptorPool] = None,
         float_precision: t.Optional[int] = None,
     ) -> t.Callable:
         """Create a deserialization function for a message type.
@@ -328,8 +334,6 @@ class MessageConverter:
                 names as defined in the .proto file. If False, convert the field
                 names to lowerCamelCase.
             use_integers_for_enums: If true, print integers instead of enum names.
-            descriptor_pool: A Descriptor Pool for resolving types. If None use the
-                default.
             float_precision: If set, use this to specify float field valid digits.
         """
 
@@ -341,7 +345,6 @@ class MessageConverter:
                 including_default_value_fields=including_default_value_fields,
                 preserving_proto_field_name=preserving_proto_field_name,
                 use_integers_for_enums=use_integers_for_enums,
-                descriptor_pool=descriptor_pool,
                 float_precision=float_precision,
             )
 
@@ -353,7 +356,6 @@ class MessageConverter:
         including_default_value_fields: bool = False,
         preserving_proto_field_name: bool = False,
         use_integers_for_enums: bool = False,
-        descriptor_pool: t.Optional[DescriptorPool] = None,
         float_precision: t.Optional[int] = None,
     ) -> t.Callable:
         """Create a deserialization udf for a message type.
@@ -371,8 +373,6 @@ class MessageConverter:
                 names as defined in the .proto file. If False, convert the field
                 names to lowerCamelCase.
             use_integers_for_enums: If true, print integers instead of enum names.
-            descriptor_pool: A Descriptor Pool for resolving types. If None use the
-                default.
             float_precision: If set, use this to specify float field valid digits.
         """
         return udf(
@@ -381,12 +381,12 @@ class MessageConverter:
                 including_default_value_fields=including_default_value_fields,
                 preserving_proto_field_name=preserving_proto_field_name,
                 use_integers_for_enums=use_integers_for_enums,
-                descriptor_pool=descriptor_pool,
                 float_precision=float_precision,
             ),
             self.get_spark_schema(
                 descriptor=message_type.DESCRIPTOR,
                 preserving_proto_field_name=preserving_proto_field_name,
+                use_integers_for_enums=use_integers_for_enums,
             ),
         )
 
@@ -397,7 +397,6 @@ class MessageConverter:
         including_default_value_fields: bool = False,
         preserving_proto_field_name: bool = False,
         use_integers_for_enums: bool = False,
-        descriptor_pool: t.Optional[DescriptorPool] = None,
         float_precision: t.Optional[int] = None,
     ) -> Column:
         """Deserialize protobuf messages to spark structs.
@@ -415,8 +414,6 @@ class MessageConverter:
                 names as defined in the .proto file. If False, convert the field
                 names to lowerCamelCase.
             use_integers_for_enums: If true, print integers instead of enum names.
-            descriptor_pool: A Descriptor Pool for resolving types. If None use the
-                default.
             float_precision: If set, use this to specify float field valid digits.
         """
         column = col(data) if isinstance(data, str) else data
@@ -425,7 +422,6 @@ class MessageConverter:
             including_default_value_fields=including_default_value_fields,
             preserving_proto_field_name=preserving_proto_field_name,
             use_integers_for_enums=use_integers_for_enums,
-            descriptor_pool=descriptor_pool,
             float_precision=float_precision,
         )
         return protobuf_decoder_udf(column)
@@ -434,7 +430,6 @@ class MessageConverter:
         self,
         message_type: t.Type[Message],
         ignore_unknown_fields: bool = False,
-        descriptor_pool: t.Optional[DescriptorPool] = None,
         max_recursion_depth: int = 100,
     ) -> t.Callable:
         """Create an encoding function for a message type.
@@ -445,8 +440,6 @@ class MessageConverter:
         Args:
             message_type: The message type for encoding.
             ignore_unknown_fields: If True, do not raise errors for unknown fields.
-            descriptor_pool: A Descriptor Pool for resolving types. If None use the
-                default.
             max_recursion_depth: max recursion depth of JSON message to be
                 deserialized. JSON messages over this depth will fail to be
                 deserialized. Default value is 100.
@@ -461,7 +454,6 @@ class MessageConverter:
                 s,
                 message,
                 ignore_unknown_fields=ignore_unknown_fields,
-                descriptor_pool=descriptor_pool,
                 max_recursion_depth=max_recursion_depth,
             )
             return message.SerializeToString()
@@ -472,7 +464,6 @@ class MessageConverter:
         self,
         message_type: t.Type[Message],
         ignore_unknown_fields: bool = False,
-        descriptor_pool: t.Optional[DescriptorPool] = None,
         max_recursion_depth: int = 100,
     ) -> t.Callable:
         """Get a pyspark udf for encoding to protobuf.
@@ -480,8 +471,6 @@ class MessageConverter:
         Args:
             message_type: The message type for encoding.
             ignore_unknown_fields: If True, do not raise errors for unknown fields.
-            descriptor_pool: A Descriptor Pool for resolving types. If None use the
-                default.
             max_recursion_depth: max recursion depth of JSON message to be
                 deserialized. JSON messages over this depth will fail to be
                 deserialized. Default value is 100.
@@ -490,7 +479,6 @@ class MessageConverter:
             self.get_encoder(
                 message_type=message_type,
                 ignore_unknown_fields=ignore_unknown_fields,
-                descriptor_pool=descriptor_pool,
                 max_recursion_depth=max_recursion_depth,
             ),
             BinaryType(),
@@ -501,7 +489,6 @@ class MessageConverter:
         data: t.Union[Column, str],
         message_type: t.Type[Message],
         ignore_unknown_fields: bool = False,
-        descriptor_pool: t.Optional[DescriptorPool] = None,
         max_recursion_depth: int = 100,
     ) -> Column:
         """Serialize spark structs to protobuf messages.
@@ -513,8 +500,6 @@ class MessageConverter:
             data: A pyspark column.
             message_type: The message type for encoding.
             ignore_unknown_fields: If True, do not raise errors for unknown fields.
-            descriptor_pool: A Descriptor Pool for resolving types. If None use the
-                default.
             max_recursion_depth: max recursion depth of JSON message to be
                 deserialized. JSON messages over this depth will fail to be
                 deserialized. Default value is 100.
@@ -523,7 +508,6 @@ class MessageConverter:
         protobuf_encoder_udf = self.get_encoder_udf(
             message_type,
             ignore_unknown_fields=ignore_unknown_fields,
-            descriptor_pool=descriptor_pool,
             max_recursion_depth=max_recursion_depth,
         )
         return protobuf_encoder_udf(column)
@@ -535,7 +519,6 @@ class MessageConverter:
         including_default_value_fields: bool = False,
         preserving_proto_field_name: bool = False,
         use_integers_for_enums: bool = False,
-        descriptor_pool: t.Optional[DescriptorPool] = None,
         float_precision: t.Optional[int] = None,
         expanded: bool = False,
     ) -> DataFrame:
@@ -552,8 +535,6 @@ class MessageConverter:
                 names as defined in the .proto file. If False, convert the field
                 names to lowerCamelCase.
             use_integers_for_enums: If true, print integers instead of enum names.
-            descriptor_pool: A Descriptor Pool for resolving types. If None use the
-                default.
             float_precision: If set, use this to specify float field valid digits.
             expanded: If True, return a dataframe in which each field is its own
                 column. Otherwise, return a dataframe with a single struct column
@@ -566,7 +547,6 @@ class MessageConverter:
                 including_default_value_fields=including_default_value_fields,
                 preserving_proto_field_name=preserving_proto_field_name,
                 use_integers_for_enums=use_integers_for_enums,
-                descriptor_pool=descriptor_pool,
                 float_precision=float_precision,
             ).alias("value")
         )
@@ -579,7 +559,6 @@ class MessageConverter:
         df: DataFrame,
         message_type: t.Type[Message],
         ignore_unknown_fields: bool = False,
-        descriptor_pool: t.Optional[DescriptorPool] = None,
         max_recursion_depth: int = 100,
         expanded: bool = False,
     ) -> DataFrame:
@@ -589,8 +568,6 @@ class MessageConverter:
             df: A pyspark dataframe.
             message_type: The message type for encoding.
             ignore_unknown_fields: If True, do not raise errors for unknown fields.
-            descriptor_pool: A Descriptor Pool for resolving types. If None use the
-                default.
             max_recursion_depth: max recursion depth of JSON message to be
                 deserialized. JSON messages over this depth will fail to be
                 deserialized. Default value is 100.
@@ -612,7 +589,6 @@ class MessageConverter:
                 data=df_struct.value,
                 message_type=message_type,
                 ignore_unknown_fields=ignore_unknown_fields,
-                descriptor_pool=descriptor_pool,
                 max_recursion_depth=max_recursion_depth,
             ).alias("value")
         )
@@ -625,7 +601,6 @@ def from_protobuf(
     including_default_value_fields: bool = False,
     preserving_proto_field_name: bool = False,
     use_integers_for_enums: bool = False,
-    descriptor_pool: t.Optional[DescriptorPool] = None,
     float_precision: t.Optional[int] = None,
     message_converter: MessageConverter = None,
 ) -> Column:
@@ -642,8 +617,6 @@ def from_protobuf(
             names as defined in the .proto file. If False, convert the field
             names to lowerCamelCase.
         use_integers_for_enums: If true, print integers instead of enum names.
-        descriptor_pool: A Descriptor Pool for resolving types. If None use the
-            default.
         float_precision: If set, use this to specify float field valid digits.
         message_converter: An instance of a message converter. If None, use the default.
     """
@@ -654,7 +627,6 @@ def from_protobuf(
         including_default_value_fields=including_default_value_fields,
         preserving_proto_field_name=preserving_proto_field_name,
         use_integers_for_enums=use_integers_for_enums,
-        descriptor_pool=descriptor_pool,
         float_precision=float_precision,
     )
 
@@ -663,7 +635,6 @@ def to_protobuf(
     data: t.Union[Column, str],
     message_type: t.Type[Message],
     ignore_unknown_fields: bool = False,
-    descriptor_pool: t.Optional[DescriptorPool] = None,
     max_recursion_depth: int = 100,
     message_converter: MessageConverter = None,
 ) -> Column:
@@ -676,8 +647,6 @@ def to_protobuf(
         data: A pyspark column.
         message_type: The message type for encoding.
         ignore_unknown_fields: If True, do not raise errors for unknown fields.
-        descriptor_pool: A Descriptor Pool for resolving types. If None use the
-            default.
         max_recursion_depth: max recursion depth of JSON message to be
             deserialized. JSON messages over this depth will fail to be
             deserialized. Default value is 100.
@@ -688,7 +657,6 @@ def to_protobuf(
         data=data,
         message_type=message_type,
         ignore_unknown_fields=ignore_unknown_fields,
-        descriptor_pool=descriptor_pool,
         max_recursion_depth=max_recursion_depth,
     )
 
@@ -699,7 +667,6 @@ def df_from_protobuf(
     including_default_value_fields: bool = False,
     preserving_proto_field_name: bool = False,
     use_integers_for_enums: bool = False,
-    descriptor_pool: t.Optional[DescriptorPool] = None,
     float_precision: t.Optional[int] = None,
     expanded: bool = False,
     message_converter: MessageConverter = None,
@@ -717,8 +684,6 @@ def df_from_protobuf(
             names as defined in the .proto file. If False, convert the field
             names to lowerCamelCase.
         use_integers_for_enums: If true, print integers instead of enum names.
-        descriptor_pool: A Descriptor Pool for resolving types. If None use the
-            default.
         float_precision: If set, use this to specify float field valid digits.
         expanded: If True, return a dataframe in which each field is its own
             column. Otherwise, return a dataframe with a single struct column
@@ -732,7 +697,6 @@ def df_from_protobuf(
         including_default_value_fields=including_default_value_fields,
         preserving_proto_field_name=preserving_proto_field_name,
         use_integers_for_enums=use_integers_for_enums,
-        descriptor_pool=descriptor_pool,
         float_precision=float_precision,
         expanded=expanded,
     )
@@ -742,7 +706,6 @@ def df_to_protobuf(
     df: DataFrame,
     message_type: t.Type[Message],
     ignore_unknown_fields: bool = False,
-    descriptor_pool: t.Optional[DescriptorPool] = None,
     max_recursion_depth: int = 100,
     expanded: bool = False,
     message_converter: MessageConverter = None,
@@ -753,8 +716,6 @@ def df_to_protobuf(
         df: A pyspark dataframe.
         message_type: The message type for encoding.
         ignore_unknown_fields: If True, do not raise errors for unknown fields.
-        descriptor_pool: A Descriptor Pool for resolving types. If None use the
-            default.
         max_recursion_depth: max recursion depth of JSON message to be
             deserialized. JSON messages over this depth will fail to be
             deserialized. Default value is 100.
@@ -771,7 +732,6 @@ def df_to_protobuf(
         df=df,
         message_type=message_type,
         ignore_unknown_fields=ignore_unknown_fields,
-        descriptor_pool=descriptor_pool,
         max_recursion_depth=max_recursion_depth,
         expanded=expanded,
     )

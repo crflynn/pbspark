@@ -3,7 +3,9 @@ import json
 from decimal import Decimal
 
 import pytest
+from google.protobuf import descriptor_pb2
 from google.protobuf import json_format
+from google.protobuf.descriptor_pool import DescriptorPool
 from google.protobuf.duration_pb2 import Duration
 from google.protobuf.json_format import MessageToDict
 from google.protobuf.timestamp_pb2 import Timestamp
@@ -96,6 +98,21 @@ def expanded(request):
     return request.param
 
 
+@pytest.fixture(params=[True, False])
+def including_default_value_fields(request):
+    return request.param
+
+
+@pytest.fixture(params=[True, False])
+def use_integers_for_enums(request):
+    return request.param
+
+
+@pytest.fixture(params=[True, False])
+def preserving_proto_field_name(request):
+    return request.param
+
+
 def test_get_spark_schema():
     mc = MessageConverter()
     mc.register_serializer(
@@ -158,6 +175,7 @@ def test_get_spark_schema():
             StructField("boolvalue", BooleanType(), True),
             StructField("stringvalue", StringType(), True),
             StructField("bytesvalue", BinaryType(), True),
+            StructField("caseName", StringType(), True),
         ]
     )
     assert schema == expected_schema
@@ -205,7 +223,9 @@ def test_get_decoder(example):
     assert decoded == expected
 
 
-def test_from_protobuf(example, spark):
+def test_from_protobuf(
+    example, spark, preserving_proto_field_name, use_integers_for_enums
+):
     mc = MessageConverter()
     mc.register_serializer(
         DecimalMessage, decimal_serializer, DecimalType(precision=10, scale=2)
@@ -214,14 +234,31 @@ def test_from_protobuf(example, spark):
     data = [{"value": example.SerializeToString()}]
 
     df = spark.createDataFrame(data)  # type: ignore[type-var]
-    dfs = df.select(mc.from_protobuf(df.value, ExampleMessage).alias("value"))
+    dfs = df.select(
+        mc.from_protobuf(
+            data=df.value,
+            message_type=ExampleMessage,
+            preserving_proto_field_name=preserving_proto_field_name,
+            use_integers_for_enums=use_integers_for_enums,
+        ).alias("value")
+    )
     dfe = dfs.select("value.*")
     dfe.show()
     dfe.printSchema()
 
-    field_names = [field.name for field in ExampleMessage.DESCRIPTOR.fields]
+    if preserving_proto_field_name:
+        field_names = [field.name for field in ExampleMessage.DESCRIPTOR.fields]
+    else:
+        field_names = [
+            field.camelcase_name for field in ExampleMessage.DESCRIPTOR.fields
+        ]
     for field_name in field_names:
         assert field_name in dfe.columns
+
+    if use_integers_for_enums:
+        assert StructField("enum", IntegerType(), True) in dfe.schema.fields
+    else:
+        assert StructField("enum", StringType(), True) in dfe.schema.fields
 
 
 def test_round_trip(example, spark):
@@ -340,3 +377,76 @@ def test_df_to_from_protobuf(example, spark, expanded):
     assert df_encoded.columns == ["value"]
     assert df_encoded.schema == df.schema
     assert df.collect() == df_encoded.collect()
+
+
+def test_including_default_value_fields(spark, including_default_value_fields):
+    example = ExampleMessage(string="asdf")
+    data = [{"value": example.SerializeToString()}]
+
+    df = spark.createDataFrame(data)  # type: ignore[type-var]
+
+    df_decoded = df_from_protobuf(
+        df=df,
+        message_type=ExampleMessage,
+        expanded=True,
+        including_default_value_fields=including_default_value_fields,
+    )
+    data = df_decoded.collect()
+    if including_default_value_fields:
+        assert data[0].asDict(True)["int32"] == 0
+    else:
+        assert data[0].asDict(True)["int32"] is None
+
+
+def test_use_integers_for_enums(spark, use_integers_for_enums):
+    example = ExampleMessage(enum=ExampleMessage.SomeEnum.first)
+    data = [{"value": example.SerializeToString()}]
+
+    df = spark.createDataFrame(data)  # type: ignore[type-var]
+
+    df_decoded = df_from_protobuf(
+        df=df,
+        message_type=ExampleMessage,
+        expanded=True,
+        use_integers_for_enums=use_integers_for_enums,
+    )
+    data = df_decoded.collect()
+    if use_integers_for_enums:
+        assert data[0].asDict(True)["enum"] == 1
+    else:
+        assert data[0].asDict(True)["enum"] == "first"
+
+
+def test_preserving_proto_field_name(spark, preserving_proto_field_name):
+    example = ExampleMessage(case_name="asdf")
+    data = [{"value": example.SerializeToString()}]
+
+    df = spark.createDataFrame(data)  # type: ignore[type-var]
+
+    df_decoded = df_from_protobuf(
+        df=df,
+        message_type=ExampleMessage,
+        expanded=True,
+        preserving_proto_field_name=preserving_proto_field_name,
+    )
+    data = df_decoded.collect()
+    if preserving_proto_field_name:
+        assert data[0].asDict(True)["case_name"] == "asdf"
+    else:
+        assert data[0].asDict(True)["caseName"] == "asdf"
+
+
+def test_float_precision(spark):
+    example = ExampleMessage(float=1.234567)
+    data = [{"value": example.SerializeToString()}]
+
+    df = spark.createDataFrame(data)  # type: ignore[type-var]
+
+    df_decoded = df_from_protobuf(
+        df=df,
+        message_type=ExampleMessage,
+        expanded=True,
+        float_precision=2,
+    )
+    data = df_decoded.collect()
+    assert data[0].asDict(True)["float"] == pytest.approx(1.2)
