@@ -1,5 +1,10 @@
 # Changelog
 
+## 2023-01-11 - 0.8.0
+
+* Breaking: Provide the same kwargs used in the protobuf lib on encoding/decoding rather than the ``options`` dict, except ``DescriptorPool`` which is unserializable.
+* Breaking: Change param ``mc`` -> ``message_converter`` on top level functions.
+
 ## 2022-07-07 - 0.7.0
 
 * Bugfix: Fixed a bug where int64 protobuf types were not being properly converted into spark types.
