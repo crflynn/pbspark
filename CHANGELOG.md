@@ -1,5 +1,9 @@
 # Changelog
 
+## 2023-06-07 - 0.9.0
+
+* Relax pyspark constraint
+
 ## 2023-01-11 - 0.8.0
 
 * Breaking: Provide the same kwargs used in the protobuf lib on encoding/decoding rather than the ``options`` dict, except ``DescriptorPool`` which is unserializable.
